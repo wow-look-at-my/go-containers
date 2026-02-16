@@ -363,6 +363,150 @@ func TestStringTypes(t *testing.T) {
 	}
 }
 
+// ---------- zero-value set ----------
+
+func TestZeroValueAdd(t *testing.T) {
+	var s Set[int]
+	s.Add(1, 2, 3)
+	if s.Len() != 3 {
+		t.Fatalf("expected 3 elements, got %d", s.Len())
+	}
+	if !s.Contains(2) {
+		t.Error("expected set to contain 2")
+	}
+}
+
+func TestZeroValueReadOps(t *testing.T) {
+	var s Set[int]
+
+	if s.Len() != 0 {
+		t.Errorf("expected Len 0, got %d", s.Len())
+	}
+	if !s.IsEmpty() {
+		t.Error("expected zero-value set to be empty")
+	}
+	if s.Contains(1) {
+		t.Error("expected Contains to return false")
+	}
+	if s.ContainsAll(1, 2) {
+		t.Error("expected ContainsAll to return false")
+	}
+	if s.ContainsAny(1, 2) {
+		t.Error("expected ContainsAny to return false")
+	}
+	if v := s.Values(); len(v) != 0 {
+		t.Errorf("expected empty Values, got %v", v)
+	}
+	if str := s.String(); str != "[]" {
+		t.Errorf("expected '[]', got %q", str)
+	}
+}
+
+func TestZeroValueClone(t *testing.T) {
+	var s Set[int]
+	c := s.Clone()
+	if !c.IsEmpty() {
+		t.Error("clone of zero-value set should be empty")
+	}
+	c.Add(1)
+	if s.Contains(1) {
+		t.Error("mutating clone should not affect original")
+	}
+}
+
+func TestZeroValueClear(t *testing.T) {
+	var s Set[int]
+	s.Clear() // should not panic
+	if !s.IsEmpty() {
+		t.Error("expected empty set after clear")
+	}
+}
+
+func TestZeroValueRemove(t *testing.T) {
+	var s Set[int]
+	s.Remove(1) // should not panic
+}
+
+func TestZeroValueAddSet(t *testing.T) {
+	var s Set[int]
+	other := Of(1, 2, 3)
+	s.AddSet(other)
+	if !s.Equal(other) {
+		t.Errorf("expected %v, got %v", other.Values(), s.Values())
+	}
+}
+
+func TestZeroValueAddSetEmpty(t *testing.T) {
+	var s Set[int]
+	var other Set[int]
+	s.AddSet(other) // should not panic
+	if !s.IsEmpty() {
+		t.Error("expected empty set")
+	}
+}
+
+func TestZeroValueRemoveSet(t *testing.T) {
+	var s Set[int]
+	other := Of(1, 2)
+	s.RemoveSet(other) // should not panic
+}
+
+func TestZeroValueRetainAll(t *testing.T) {
+	var s Set[int]
+	other := Of(1, 2)
+	s.RetainAll(other) // should not panic
+	if !s.IsEmpty() {
+		t.Error("expected empty set")
+	}
+}
+
+func TestZeroValueSetAlgebra(t *testing.T) {
+	var empty Set[int]
+	full := Of(1, 2, 3)
+
+	if u := empty.Union(full); !u.Equal(full) {
+		t.Error("union of zero-value with full should equal full")
+	}
+	if u := full.Union(empty); !u.Equal(full) {
+		t.Error("union of full with zero-value should equal full")
+	}
+	if inter := empty.Intersection(full); !inter.IsEmpty() {
+		t.Error("intersection of zero-value with full should be empty")
+	}
+	if diff := empty.Difference(full); !diff.IsEmpty() {
+		t.Error("zero-value minus full should be empty")
+	}
+	if diff := full.Difference(empty); !diff.Equal(full) {
+		t.Error("full minus zero-value should equal full")
+	}
+	if sd := empty.SymmetricDifference(full); !sd.Equal(full) {
+		t.Error("symmetric difference of zero-value and full should equal full")
+	}
+	if !empty.IsSubsetOf(full) {
+		t.Error("zero-value set is subset of every set")
+	}
+	if !full.IsSupersetOf(empty) {
+		t.Error("full set is superset of zero-value set")
+	}
+	if !empty.IsDisjoint(full) {
+		t.Error("zero-value set is disjoint with every set")
+	}
+	if !empty.Equal(New[int]()) {
+		t.Error("zero-value set should equal empty initialized set")
+	}
+}
+
+func TestZeroValueIterator(t *testing.T) {
+	var s Set[int]
+	count := 0
+	for range s.All() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("expected 0 iterations, got %d", count)
+	}
+}
+
 // ---------- benchmarks ----------
 
 func BenchmarkContains(b *testing.B) {

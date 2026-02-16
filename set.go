@@ -4,7 +4,7 @@ package set
 import "fmt"
 
 // Set is an unordered collection of unique elements of type T.
-// The zero value is not usable; create sets with New or Of.
+// The zero value is an empty set ready to use.
 type Set[T comparable] struct {
 	m map[T]struct{}
 }
@@ -29,6 +29,9 @@ func Of[T comparable](elems ...T) Set[T] {
 
 // Add inserts one or more elements into the set.
 func (s *Set[T]) Add(elems ...T) {
+	if s.m == nil {
+		s.m = make(map[T]struct{}, len(elems))
+	}
 	for _, e := range elems {
 		s.m[e] = struct{}{}
 	}
@@ -79,6 +82,9 @@ func (s Set[T]) IsEmpty() bool {
 
 // Clear removes all elements from the set.
 func (s *Set[T]) Clear() {
+	if s.m == nil {
+		return
+	}
 	clear(s.m)
 }
 
@@ -236,6 +242,12 @@ func (s Set[T]) IsDisjoint(other Set[T]) bool {
 
 // AddSet adds all elements from other into s.
 func (s *Set[T]) AddSet(other Set[T]) {
+	if len(other.m) == 0 {
+		return
+	}
+	if s.m == nil {
+		s.m = make(map[T]struct{}, len(other.m))
+	}
 	for k := range other.m {
 		s.m[k] = struct{}{}
 	}

@@ -6,16 +6,15 @@ import (
 	"math/rand/v2"
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
 	m := New[int, string]()
-	if m.Len() != 0 {
-		t.Fatalf("expected empty map, got len %d", m.Len())
-	}
-	if !m.IsEmpty() {
-		t.Fatal("expected IsEmpty to return true")
-	}
+	require.Equal(t, 0, m.Len(), "expected empty map")
+	require.True(t, m.IsEmpty(), "expected IsEmpty to return true")
 }
 
 func TestPutAndGet(t *testing.T) {
@@ -24,9 +23,7 @@ func TestPutAndGet(t *testing.T) {
 	m.Put(1, "one")
 	m.Put(2, "two")
 
-	if m.Len() != 3 {
-		t.Fatalf("expected 3 entries, got %d", m.Len())
-	}
+	require.Equal(t, 3, m.Len(), "expected 3 entries")
 	for _, tc := range []struct {
 		key  int
 		want string
@@ -34,18 +31,12 @@ func TestPutAndGet(t *testing.T) {
 		{1, "one"}, {2, "two"}, {3, "three"},
 	} {
 		v, ok := m.Get(tc.key)
-		if !ok {
-			t.Errorf("Get(%d): expected ok", tc.key)
-		}
-		if v != tc.want {
-			t.Errorf("Get(%d) = %q, want %q", tc.key, v, tc.want)
-		}
+		assert.True(t, ok, "Get(%d): expected ok", tc.key)
+		assert.Equal(t, tc.want, v, "Get(%d) = %q, want %q", tc.key, v, tc.want)
 	}
 
 	_, ok := m.Get(99)
-	if ok {
-		t.Error("Get(99) should return false for missing key")
-	}
+	assert.False(t, ok, "Get(99) should return false for missing key")
 }
 
 func TestPutOverwrite(t *testing.T) {
@@ -53,23 +44,15 @@ func TestPutOverwrite(t *testing.T) {
 	m.Put("key", 1)
 	m.Put("key", 2)
 	v, _ := m.Get("key")
-	if v != 2 {
-		t.Errorf("expected overwritten value 2, got %d", v)
-	}
-	if m.Len() != 1 {
-		t.Errorf("expected len 1 after overwrite, got %d", m.Len())
-	}
+	assert.Equal(t, 2, v, "expected overwritten value 2")
+	assert.Equal(t, 1, m.Len(), "expected len 1 after overwrite")
 }
 
 func TestContains(t *testing.T) {
 	m := New[int, string]()
 	m.Put(1, "one")
-	if !m.Contains(1) {
-		t.Error("expected Contains(1) = true")
-	}
-	if m.Contains(2) {
-		t.Error("expected Contains(2) = false")
-	}
+	assert.True(t, m.Contains(1), "expected Contains(1) = true")
+	assert.False(t, m.Contains(2), "expected Contains(2) = false")
 }
 
 func TestDelete(t *testing.T) {
@@ -78,19 +61,11 @@ func TestDelete(t *testing.T) {
 	m.Put(2, "two")
 	m.Put(3, "three")
 
-	if !m.Delete(2) {
-		t.Error("Delete(2) should return true")
-	}
-	if m.Contains(2) {
-		t.Error("key 2 should be gone after delete")
-	}
-	if m.Len() != 2 {
-		t.Errorf("expected len 2, got %d", m.Len())
-	}
+	assert.True(t, m.Delete(2), "Delete(2) should return true")
+	assert.False(t, m.Contains(2), "key 2 should be gone after delete")
+	assert.Equal(t, 2, m.Len(), "expected len 2")
 
-	if m.Delete(99) {
-		t.Error("Delete(99) should return false for missing key")
-	}
+	assert.False(t, m.Delete(99), "Delete(99) should return false for missing key")
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -99,13 +74,9 @@ func TestDeleteAll(t *testing.T) {
 		m.Put(i, i)
 	}
 	for i := 0; i < 10; i++ {
-		if !m.Delete(i) {
-			t.Errorf("Delete(%d) should return true", i)
-		}
+		assert.True(t, m.Delete(i), "Delete(%d) should return true", i)
 	}
-	if !m.IsEmpty() {
-		t.Errorf("expected empty map, got len %d", m.Len())
-	}
+	assert.True(t, m.IsEmpty(), "expected empty map, got len %d", m.Len())
 }
 
 func TestDeleteReverseOrder(t *testing.T) {
@@ -114,13 +85,9 @@ func TestDeleteReverseOrder(t *testing.T) {
 		m.Put(i, i)
 	}
 	for i := 19; i >= 0; i-- {
-		if !m.Delete(i) {
-			t.Errorf("Delete(%d) should return true", i)
-		}
+		assert.True(t, m.Delete(i), "Delete(%d) should return true", i)
 	}
-	if !m.IsEmpty() {
-		t.Errorf("expected empty map, got len %d", m.Len())
-	}
+	assert.True(t, m.IsEmpty(), "expected empty map, got len %d", m.Len())
 }
 
 func TestDeleteEvens(t *testing.T) {
@@ -131,17 +98,13 @@ func TestDeleteEvens(t *testing.T) {
 	for i := 0; i < 100; i += 2 {
 		m.Delete(i)
 	}
-	if m.Len() != 50 {
-		t.Fatalf("expected 50 remaining, got %d", m.Len())
-	}
+	require.Equal(t, 50, m.Len(), "expected 50 remaining")
 	var keys []int
 	for k := range m.Keys() {
 		keys = append(keys, k)
 	}
 	for i, k := range keys {
-		if k != i*2+1 {
-			t.Errorf("keys[%d] = %d, want %d", i, k, i*2+1)
-		}
+		assert.Equal(t, i*2+1, k, "keys[%d] = %d, want %d", i, k, i*2+1)
 	}
 }
 
@@ -150,12 +113,8 @@ func TestClear(t *testing.T) {
 	m.Put(1, "one")
 	m.Put(2, "two")
 	m.Clear()
-	if m.Len() != 0 {
-		t.Fatalf("expected len 0 after clear, got %d", m.Len())
-	}
-	if !m.IsEmpty() {
-		t.Fatal("expected IsEmpty after clear")
-	}
+	require.Equal(t, 0, m.Len(), "expected len 0 after clear")
+	require.True(t, m.IsEmpty(), "expected IsEmpty after clear")
 }
 
 // ---------- ordered operations ----------
@@ -164,13 +123,9 @@ func TestMinMax(t *testing.T) {
 	m := New[int, string]()
 
 	_, _, ok := m.Min()
-	if ok {
-		t.Error("Min on empty map should return false")
-	}
+	assert.False(t, ok, "Min on empty map should return false")
 	_, _, ok = m.Max()
-	if ok {
-		t.Error("Max on empty map should return false")
-	}
+	assert.False(t, ok, "Max on empty map should return false")
 
 	m.Put(5, "five")
 	m.Put(1, "one")
@@ -178,13 +133,9 @@ func TestMinMax(t *testing.T) {
 	m.Put(3, "three")
 
 	k, v, ok := m.Min()
-	if !ok || k != 1 || v != "one" {
-		t.Errorf("Min() = (%d, %q, %v), want (1, \"one\", true)", k, v, ok)
-	}
+	assert.False(t, !ok || k != 1 || v != "one", "Min() = (%d, %q, %v), want (1, \"one\", true)", k, v, ok)
 	k, v, ok = m.Max()
-	if !ok || k != 9 || v != "nine" {
-		t.Errorf("Max() = (%d, %q, %v), want (9, \"nine\", true)", k, v, ok)
-	}
+	assert.False(t, !ok || k != 9 || v != "nine", "Max() = (%d, %q, %v), want (9, \"nine\", true)", k, v, ok)
 }
 
 func TestFloor(t *testing.T) {
@@ -199,20 +150,19 @@ func TestFloor(t *testing.T) {
 		wantVal string
 		wantOK  bool
 	}{
-		{1, 0, "", false},     // below all keys
-		{2, 2, "two", true},   // exact match
-		{3, 2, "two", true},   // between keys
-		{4, 4, "four", true},  // exact match
-		{5, 4, "four", true},  // between keys
-		{6, 6, "six", true},   // exact match
-		{99, 6, "six", true},  // above all keys
+		{1, 0, "", false},    // below all keys
+		{2, 2, "two", true},  // exact match
+		{3, 2, "two", true},  // between keys
+		{4, 4, "four", true}, // exact match
+		{5, 4, "four", true}, // between keys
+		{6, 6, "six", true},  // exact match
+		{99, 6, "six", true}, // above all keys
 	}
 	for _, tc := range tests {
 		k, v, ok := m.Floor(tc.key)
-		if ok != tc.wantOK || k != tc.wantKey || v != tc.wantVal {
-			t.Errorf("Floor(%d) = (%d, %q, %v), want (%d, %q, %v)",
-				tc.key, k, v, ok, tc.wantKey, tc.wantVal, tc.wantOK)
-		}
+		assert.False(t, ok != tc.wantOK || k != tc.wantKey || v != tc.wantVal,
+			"Floor(%d) = (%d, %q, %v), want (%d, %q, %v)",
+			tc.key, k, v, ok, tc.wantKey, tc.wantVal, tc.wantOK)
 	}
 }
 
@@ -228,20 +178,19 @@ func TestCeiling(t *testing.T) {
 		wantVal string
 		wantOK  bool
 	}{
-		{1, 2, "two", true},   // below all keys
-		{2, 2, "two", true},   // exact match
-		{3, 4, "four", true},  // between keys
-		{4, 4, "four", true},  // exact match
-		{5, 6, "six", true},   // between keys
-		{6, 6, "six", true},   // exact match
-		{99, 0, "", false},    // above all keys
+		{1, 2, "two", true},  // below all keys
+		{2, 2, "two", true},  // exact match
+		{3, 4, "four", true}, // between keys
+		{4, 4, "four", true}, // exact match
+		{5, 6, "six", true},  // between keys
+		{6, 6, "six", true},  // exact match
+		{99, 0, "", false},   // above all keys
 	}
 	for _, tc := range tests {
 		k, v, ok := m.Ceiling(tc.key)
-		if ok != tc.wantOK || k != tc.wantKey || v != tc.wantVal {
-			t.Errorf("Ceiling(%d) = (%d, %q, %v), want (%d, %q, %v)",
-				tc.key, k, v, ok, tc.wantKey, tc.wantVal, tc.wantOK)
-		}
+		assert.False(t, ok != tc.wantOK || k != tc.wantKey || v != tc.wantVal,
+			"Ceiling(%d) = (%d, %q, %v), want (%d, %q, %v)",
+			tc.key, k, v, ok, tc.wantKey, tc.wantVal, tc.wantOK)
 	}
 }
 
@@ -259,12 +208,8 @@ func TestAll(t *testing.T) {
 		keys = append(keys, k)
 		vals = append(vals, v)
 	}
-	if !slices.Equal(keys, []int{1, 2, 3}) {
-		t.Errorf("All keys = %v, want [1 2 3]", keys)
-	}
-	if !slices.Equal(vals, []string{"one", "two", "three"}) {
-		t.Errorf("All vals = %v, want [one two three]", vals)
-	}
+	assert.True(t, slices.Equal(keys, []int{1, 2, 3}), "All keys = %v, want [1 2 3]", keys)
+	assert.True(t, slices.Equal(vals, []string{"one", "two", "three"}), "All vals = %v, want [one two three]", vals)
 }
 
 func TestAllEarlyBreak(t *testing.T) {
@@ -279,9 +224,7 @@ func TestAllEarlyBreak(t *testing.T) {
 			break
 		}
 	}
-	if count != 3 {
-		t.Errorf("expected 3 iterations before break, got %d", count)
-	}
+	assert.Equal(t, 3, count, "expected 3 iterations before break")
 }
 
 func TestKeys(t *testing.T) {
@@ -294,9 +237,7 @@ func TestKeys(t *testing.T) {
 	for k := range m.Keys() {
 		keys = append(keys, k)
 	}
-	if !slices.Equal(keys, []int{1, 3, 5}) {
-		t.Errorf("Keys = %v, want [1 3 5]", keys)
-	}
+	assert.True(t, slices.Equal(keys, []int{1, 3, 5}), "Keys = %v, want [1 3 5]", keys)
 }
 
 func TestValues(t *testing.T) {
@@ -309,9 +250,7 @@ func TestValues(t *testing.T) {
 	for v := range m.Values() {
 		vals = append(vals, v)
 	}
-	if !slices.Equal(vals, []string{"one", "two", "three"}) {
-		t.Errorf("Values = %v, want [one two three]", vals)
-	}
+	assert.True(t, slices.Equal(vals, []string{"one", "two", "three"}), "Values = %v, want [one two three]", vals)
 }
 
 func TestBackward(t *testing.T) {
@@ -324,9 +263,7 @@ func TestBackward(t *testing.T) {
 	for k, _ := range m.Backward() {
 		keys = append(keys, k)
 	}
-	if !slices.Equal(keys, []int{3, 2, 1}) {
-		t.Errorf("Backward keys = %v, want [3 2 1]", keys)
-	}
+	assert.True(t, slices.Equal(keys, []int{3, 2, 1}), "Backward keys = %v, want [3 2 1]", keys)
 }
 
 func TestRange(t *testing.T) {
@@ -339,9 +276,7 @@ func TestRange(t *testing.T) {
 	for k, _ := range m.Range(3, 7) {
 		keys = append(keys, k)
 	}
-	if !slices.Equal(keys, []int{3, 4, 5, 6, 7}) {
-		t.Errorf("Range(3,7) keys = %v, want [3 4 5 6 7]", keys)
-	}
+	assert.Equal(t, []int{3, 4, 5, 6, 7}, keys, "Range(3,7) keys")
 }
 
 func TestRangeNoResults(t *testing.T) {
@@ -353,9 +288,7 @@ func TestRangeNoResults(t *testing.T) {
 	for k, _ := range m.Range(3, 7) {
 		keys = append(keys, k)
 	}
-	if len(keys) != 0 {
-		t.Errorf("expected no keys in range, got %v", keys)
-	}
+	assert.Equal(t, 0, len(keys), "expected no keys in range, got %v", keys)
 }
 
 func TestRangeSingleElement(t *testing.T) {
@@ -368,9 +301,7 @@ func TestRangeSingleElement(t *testing.T) {
 	for k, _ := range m.Range(5, 5) {
 		keys = append(keys, k)
 	}
-	if !slices.Equal(keys, []int{5}) {
-		t.Errorf("Range(5,5) = %v, want [5]", keys)
-	}
+	assert.True(t, slices.Equal(keys, []int{5}), "Range(5,5) = %v, want [5]", keys)
 }
 
 // ---------- String ----------
@@ -380,16 +311,12 @@ func TestString(t *testing.T) {
 	m.Put(2, "two")
 	m.Put(1, "one")
 	expected := "{1: one, 2: two}"
-	if got := m.String(); got != expected {
-		t.Errorf("String() = %q, want %q", got, expected)
-	}
+	assert.Equal(t, expected, m.String())
 }
 
 func TestStringEmpty(t *testing.T) {
 	m := New[int, string]()
-	if got := m.String(); got != "{}" {
-		t.Errorf("String() = %q, want \"{}\"", got)
-	}
+	assert.Equal(t, "{}", m.String())
 }
 
 // ---------- custom comparator ----------
@@ -407,18 +334,12 @@ func TestNewWithCompare(t *testing.T) {
 	for k := range m.Keys() {
 		keys = append(keys, k)
 	}
-	if !slices.Equal(keys, []int{3, 2, 1}) {
-		t.Errorf("reverse-order Keys = %v, want [3 2 1]", keys)
-	}
+	assert.True(t, slices.Equal(keys, []int{3, 2, 1}), "reverse-order Keys = %v, want [3 2 1]", keys)
 
 	k, _, _ := m.Min()
-	if k != 3 {
-		t.Errorf("Min key with reverse comparator = %d, want 3", k)
-	}
+	assert.Equal(t, 3, k, "Min key with reverse comparator")
 	k, _, _ = m.Max()
-	if k != 1 {
-		t.Errorf("Max key with reverse comparator = %d, want 1", k)
-	}
+	assert.Equal(t, 1, k, "Max key with reverse comparator")
 }
 
 // ---------- string keys ----------
@@ -433,42 +354,28 @@ func TestStringKeys(t *testing.T) {
 	for k := range m.Keys() {
 		keys = append(keys, k)
 	}
-	if !slices.Equal(keys, []string{"apple", "banana", "cherry"}) {
-		t.Errorf("string keys = %v, want [apple banana cherry]", keys)
-	}
+	assert.True(t, slices.Equal(keys, []string{"apple", "banana", "cherry"}), "string keys = %v, want [apple banana cherry]", keys)
 }
 
 // ---------- empty map edge cases ----------
 
 func TestEmptyMapOperations(t *testing.T) {
 	m := New[int, int]()
-	if m.Delete(1) {
-		t.Error("Delete on empty map should return false")
-	}
-	if m.Contains(1) {
-		t.Error("Contains on empty map should return false")
-	}
+	assert.False(t, m.Delete(1), "Delete on empty map should return false")
+	assert.False(t, m.Contains(1), "Contains on empty map should return false")
 	_, ok := m.Get(1)
-	if ok {
-		t.Error("Get on empty map should return false")
-	}
+	assert.False(t, ok, "Get on empty map should return false")
 
 	count := 0
 	for range m.All() {
 		count++
 	}
-	if count != 0 {
-		t.Errorf("All on empty map yielded %d items", count)
-	}
+	assert.Equal(t, 0, count, "All on empty map yielded %d items", count)
 
 	_, _, ok = m.Floor(1)
-	if ok {
-		t.Error("Floor on empty map should return false")
-	}
+	assert.False(t, ok, "Floor on empty map should return false")
 	_, _, ok = m.Ceiling(1)
-	if ok {
-		t.Error("Ceiling on empty map should return false")
-	}
+	assert.False(t, ok, "Ceiling on empty map should return false")
 }
 
 // ---------- single element ----------
@@ -478,20 +385,14 @@ func TestSingleElement(t *testing.T) {
 	m.Put(42, "answer")
 
 	k, v, ok := m.Min()
-	if !ok || k != 42 || v != "answer" {
-		t.Errorf("Min = (%d, %q, %v), want (42, \"answer\", true)", k, v, ok)
-	}
+	assert.False(t, !ok || k != 42 || v != "answer",
+		"Min = (%d, %q, %v), want (42, \"answer\", true)", k, v, ok)
 	k, v, ok = m.Max()
-	if !ok || k != 42 || v != "answer" {
-		t.Errorf("Max = (%d, %q, %v), want (42, \"answer\", true)", k, v, ok)
-	}
+	assert.False(t, !ok || k != 42 || v != "answer",
+		"Max = (%d, %q, %v), want (42, \"answer\", true)", k, v, ok)
 
-	if !m.Delete(42) {
-		t.Error("Delete(42) should return true")
-	}
-	if !m.IsEmpty() {
-		t.Error("map should be empty after deleting only element")
-	}
+	assert.True(t, m.Delete(42), "Delete(42) should return true")
+	assert.True(t, m.IsEmpty(), "map should be empty after deleting only element")
 }
 
 // ---------- stress test ----------
@@ -515,25 +416,20 @@ func TestRandomInsertDelete(t *testing.T) {
 		}
 	}
 
-	if m.Len() != len(ref) {
-		t.Fatalf("size mismatch: got %d, want %d", m.Len(), len(ref))
-	}
+	require.Equal(t, len(ref), m.Len(), "size mismatch")
 
 	// Verify all reference entries are present.
 	for k, v := range ref {
 		got, ok := m.Get(k)
-		if !ok || got != v {
-			t.Errorf("Get(%d) = (%d, %v), want (%d, true)", k, got, ok, v)
-		}
+		assert.False(t, !ok || got != v,
+			"Get(%d) = (%d, %v), want (%d, true)", k, got, ok, v)
 	}
 
 	// Verify sorted order.
 	var prev int
 	first := true
 	for k := range m.Keys() {
-		if !first && k <= prev {
-			t.Fatalf("keys not sorted: %d after %d", k, prev)
-		}
+		require.False(t, !first && k <= prev, "keys not sorted: %d after %d", k, prev)
 		prev = k
 		first = false
 	}

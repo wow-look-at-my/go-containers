@@ -11,5 +11,3 @@ jobs:
 
       - name: Build & Test
         uses: wow-look-at-my/go-toolchain@v1
-        with:
-          packages: ./...

@@ -3,6 +3,9 @@ package set
 import (
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // sorted helper to make slice comparisons deterministic.
@@ -13,106 +16,70 @@ func sorted(s []int) []int {
 
 func TestNew(t *testing.T) {
 	s := New[int]()
-	if s.Len() != 0 {
-		t.Fatalf("expected empty set, got len %d", s.Len())
-	}
+	require.Equal(t, 0, s.Len(), "expected empty set")
 }
 
 func TestNewWithCapacity(t *testing.T) {
 	s := New[int](100)
-	if s.Len() != 0 {
-		t.Fatalf("expected empty set, got len %d", s.Len())
-	}
+	require.Equal(t, 0, s.Len(), "expected empty set")
 }
 
 func TestOf(t *testing.T) {
 	s := Of(1, 2, 3, 2, 1)
-	if s.Len() != 3 {
-		t.Fatalf("expected 3 unique elements, got %d", s.Len())
-	}
+	require.Equal(t, 3, s.Len(), "expected 3 unique elements")
 	for _, v := range []int{1, 2, 3} {
-		if !s.Contains(v) {
-			t.Errorf("expected set to contain %d", v)
-		}
+		assert.True(t, s.Contains(v), "expected set to contain %d", v)
 	}
 }
 
 func TestAddRemoveContains(t *testing.T) {
 	s := New[string]()
 	s.Add("a", "b", "c")
-	if s.Len() != 3 {
-		t.Fatalf("expected 3 elements, got %d", s.Len())
-	}
-	if !s.Contains("b") {
-		t.Error("expected set to contain 'b'")
-	}
+	require.Equal(t, 3, s.Len(), "expected 3 elements")
+	assert.True(t, s.Contains("b"), "expected set to contain 'b'")
 	s.Remove("b")
-	if s.Contains("b") {
-		t.Error("expected 'b' to be removed")
-	}
-	if s.Len() != 2 {
-		t.Fatalf("expected 2 elements, got %d", s.Len())
-	}
+	assert.False(t, s.Contains("b"), "expected 'b' to be removed")
+	require.Equal(t, 2, s.Len(), "expected 2 elements")
 }
 
 func TestContainsAll(t *testing.T) {
 	s := Of(1, 2, 3, 4, 5)
-	if !s.ContainsAll(1, 3, 5) {
-		t.Error("expected ContainsAll to return true for subset")
-	}
-	if s.ContainsAll(1, 6) {
-		t.Error("expected ContainsAll to return false when an element is missing")
-	}
+	assert.True(t, s.ContainsAll(1, 3, 5), "expected ContainsAll to return true for subset")
+	assert.False(t, s.ContainsAll(1, 6), "expected ContainsAll to return false when an element is missing")
 }
 
 func TestContainsAny(t *testing.T) {
 	s := Of(1, 2, 3)
-	if !s.ContainsAny(5, 3) {
-		t.Error("expected ContainsAny to return true")
-	}
-	if s.ContainsAny(7, 8) {
-		t.Error("expected ContainsAny to return false")
-	}
+	assert.True(t, s.ContainsAny(5, 3), "expected ContainsAny to return true")
+	assert.False(t, s.ContainsAny(7, 8), "expected ContainsAny to return false")
 }
 
 func TestIsEmpty(t *testing.T) {
 	s := New[int]()
-	if !s.IsEmpty() {
-		t.Error("expected new set to be empty")
-	}
+	assert.True(t, s.IsEmpty(), "expected new set to be empty")
 	s.Add(1)
-	if s.IsEmpty() {
-		t.Error("expected set with element to not be empty")
-	}
+	assert.False(t, s.IsEmpty(), "expected set with element to not be empty")
 }
 
 func TestClear(t *testing.T) {
 	s := Of(1, 2, 3)
 	s.Clear()
-	if s.Len() != 0 {
-		t.Fatalf("expected empty set after clear, got len %d", s.Len())
-	}
+	require.Equal(t, 0, s.Len(), "expected empty set after clear")
 }
 
 func TestClone(t *testing.T) {
 	s := Of(1, 2, 3)
 	c := s.Clone()
-	if !s.Equal(c) {
-		t.Error("clone should equal original")
-	}
+	assert.True(t, s.Equal(c), "clone should equal original")
 	c.Add(4)
-	if s.Contains(4) {
-		t.Error("mutating clone should not affect original")
-	}
+	assert.False(t, s.Contains(4), "mutating clone should not affect original")
 }
 
 func TestValues(t *testing.T) {
 	s := Of(3, 1, 2)
 	vals := sorted(s.Values())
 	expected := []int{1, 2, 3}
-	if !slices.Equal(vals, expected) {
-		t.Errorf("expected %v, got %v", expected, vals)
-	}
+	assert.True(t, slices.Equal(vals, expected), "expected %v, got %v", expected, vals)
 }
 
 func TestAll(t *testing.T) {
@@ -121,9 +88,7 @@ func TestAll(t *testing.T) {
 	for v := range s.All() {
 		collected = append(collected, v)
 	}
-	if len(collected) != 3 {
-		t.Errorf("expected 3 elements from iterator, got %d", len(collected))
-	}
+	assert.Equal(t, 3, len(collected), "expected 3 elements from iterator")
 }
 
 func TestAllEarlyBreak(t *testing.T) {
@@ -135,17 +100,13 @@ func TestAllEarlyBreak(t *testing.T) {
 			break
 		}
 	}
-	if count != 2 {
-		t.Errorf("expected iterator to stop after 2, got %d", count)
-	}
+	assert.Equal(t, 2, count, "expected iterator to stop after 2")
 }
 
 func TestString(t *testing.T) {
 	s := Of(42)
 	str := s.String()
-	if str != "[42]" {
-		t.Errorf("expected '[42]', got %q", str)
-	}
+	assert.Equal(t, "[42]", str)
 }
 
 // ---------- set operations ----------
@@ -155,9 +116,7 @@ func TestUnion(t *testing.T) {
 	b := Of(3, 4, 5)
 	u := a.Union(b)
 	expected := []int{1, 2, 3, 4, 5}
-	if got := sorted(u.Values()); !slices.Equal(got, expected) {
-		t.Errorf("Union: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(u.Values()), expected), "Union: expected %v, got %v", expected, sorted(u.Values()))
 }
 
 func TestUnionSmallFirst(t *testing.T) {
@@ -166,9 +125,7 @@ func TestUnionSmallFirst(t *testing.T) {
 	b := Of(3, 6)
 	u := a.Union(b)
 	expected := []int{1, 2, 3, 4, 5, 6}
-	if got := sorted(u.Values()); !slices.Equal(got, expected) {
-		t.Errorf("Union: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(u.Values()), expected), "Union: expected %v, got %v", expected, sorted(u.Values()))
 }
 
 func TestIntersection(t *testing.T) {
@@ -176,18 +133,14 @@ func TestIntersection(t *testing.T) {
 	b := Of(3, 4, 5, 6)
 	inter := a.Intersection(b)
 	expected := []int{3, 4}
-	if got := sorted(inter.Values()); !slices.Equal(got, expected) {
-		t.Errorf("Intersection: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(inter.Values()), expected), "Intersection: expected %v, got %v", expected, sorted(inter.Values()))
 }
 
 func TestIntersectionEmpty(t *testing.T) {
 	a := Of(1, 2)
 	b := Of(3, 4)
 	inter := a.Intersection(b)
-	if !inter.IsEmpty() {
-		t.Error("expected empty intersection")
-	}
+	assert.True(t, inter.IsEmpty(), "expected empty intersection")
 }
 
 func TestDifference(t *testing.T) {
@@ -195,9 +148,7 @@ func TestDifference(t *testing.T) {
 	b := Of(3, 4, 5)
 	diff := a.Difference(b)
 	expected := []int{1, 2}
-	if got := sorted(diff.Values()); !slices.Equal(got, expected) {
-		t.Errorf("Difference: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(diff.Values()), expected), "Difference: expected %v, got %v", expected, sorted(diff.Values()))
 }
 
 func TestSymmetricDifference(t *testing.T) {
@@ -205,84 +156,56 @@ func TestSymmetricDifference(t *testing.T) {
 	b := Of(3, 4, 5)
 	sd := a.SymmetricDifference(b)
 	expected := []int{1, 2, 4, 5}
-	if got := sorted(sd.Values()); !slices.Equal(got, expected) {
-		t.Errorf("SymmetricDifference: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(sd.Values()), expected), "SymmetricDifference: expected %v, got %v", expected, sorted(sd.Values()))
 }
 
 func TestIsSubsetOf(t *testing.T) {
 	a := Of(1, 2)
 	b := Of(1, 2, 3, 4)
-	if !a.IsSubsetOf(b) {
-		t.Error("expected a to be subset of b")
-	}
-	if b.IsSubsetOf(a) {
-		t.Error("expected b to NOT be subset of a")
-	}
+	assert.True(t, a.IsSubsetOf(b), "expected a to be subset of b")
+	assert.False(t, b.IsSubsetOf(a), "expected b to NOT be subset of a")
 }
 
 func TestIsSubsetOfSelf(t *testing.T) {
 	a := Of(1, 2, 3)
-	if !a.IsSubsetOf(a) {
-		t.Error("a set is always a subset of itself")
-	}
+	assert.True(t, a.IsSubsetOf(a), "a set is always a subset of itself")
 }
 
 func TestIsSupersetOf(t *testing.T) {
 	a := Of(1, 2, 3, 4)
 	b := Of(1, 2)
-	if !a.IsSupersetOf(b) {
-		t.Error("expected a to be superset of b")
-	}
-	if b.IsSupersetOf(a) {
-		t.Error("expected b to NOT be superset of a")
-	}
+	assert.True(t, a.IsSupersetOf(b), "expected a to be superset of b")
+	assert.False(t, b.IsSupersetOf(a), "expected b to NOT be superset of a")
 }
 
 func TestIsProperSubsetOf(t *testing.T) {
 	a := Of(1, 2)
 	b := Of(1, 2, 3)
-	if !a.IsProperSubsetOf(b) {
-		t.Error("expected a to be proper subset of b")
-	}
-	if a.IsProperSubsetOf(a) {
-		t.Error("a set is NOT a proper subset of itself")
-	}
+	assert.True(t, a.IsProperSubsetOf(b), "expected a to be proper subset of b")
+	assert.False(t, a.IsProperSubsetOf(a), "a set is NOT a proper subset of itself")
 }
 
 func TestIsProperSupersetOf(t *testing.T) {
 	a := Of(1, 2, 3)
 	b := Of(1, 2)
-	if !a.IsProperSupersetOf(b) {
-		t.Error("expected a to be proper superset of b")
-	}
-	if a.IsProperSupersetOf(a) {
-		t.Error("a set is NOT a proper superset of itself")
-	}
+	assert.True(t, a.IsProperSupersetOf(b), "expected a to be proper superset of b")
+	assert.False(t, a.IsProperSupersetOf(a), "a set is NOT a proper superset of itself")
 }
 
 func TestEqual(t *testing.T) {
 	a := Of(1, 2, 3)
 	b := Of(3, 2, 1)
-	if !a.Equal(b) {
-		t.Error("expected equal sets")
-	}
+	assert.True(t, a.Equal(b), "expected equal sets")
 	b.Add(4)
-	if a.Equal(b) {
-		t.Error("expected unequal sets after adding element")
-	}
+	assert.False(t, a.Equal(b), "expected unequal sets after adding element")
 }
 
 func TestIsDisjoint(t *testing.T) {
 	a := Of(1, 2)
 	b := Of(3, 4)
-	if !a.IsDisjoint(b) {
-		t.Error("expected disjoint sets")
-	}
+	assert.True(t, a.IsDisjoint(b), "expected disjoint sets")
 	b.Add(2)
-	if a.IsDisjoint(b) {
-		t.Error("expected non-disjoint sets")
-	}
+	assert.False(t, a.IsDisjoint(b), "expected non-disjoint sets")
 }
 
 // ---------- in-place mutations ----------
@@ -292,9 +215,7 @@ func TestAddSet(t *testing.T) {
 	b := Of(3, 4)
 	a.AddSet(b)
 	expected := []int{1, 2, 3, 4}
-	if got := sorted(a.Values()); !slices.Equal(got, expected) {
-		t.Errorf("AddSet: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(a.Values()), expected), "AddSet: expected %v, got %v", expected, sorted(a.Values()))
 }
 
 func TestRemoveSet(t *testing.T) {
@@ -302,9 +223,7 @@ func TestRemoveSet(t *testing.T) {
 	b := Of(2, 4)
 	a.RemoveSet(b)
 	expected := []int{1, 3}
-	if got := sorted(a.Values()); !slices.Equal(got, expected) {
-		t.Errorf("RemoveSet: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(a.Values()), expected), "RemoveSet: expected %v, got %v", expected, sorted(a.Values()))
 }
 
 func TestRemoveSetLargerOther(t *testing.T) {
@@ -312,9 +231,7 @@ func TestRemoveSetLargerOther(t *testing.T) {
 	a := Of(1, 2)
 	b := Of(1, 2, 3, 4, 5, 6)
 	a.RemoveSet(b)
-	if !a.IsEmpty() {
-		t.Errorf("expected empty set, got %v", a.Values())
-	}
+	assert.True(t, a.IsEmpty(), "expected empty set, got %v", a.Values())
 }
 
 func TestRetainAll(t *testing.T) {
@@ -322,9 +239,7 @@ func TestRetainAll(t *testing.T) {
 	b := Of(2, 4, 6)
 	a.RetainAll(b)
 	expected := []int{2, 4}
-	if got := sorted(a.Values()); !slices.Equal(got, expected) {
-		t.Errorf("RetainAll: expected %v, got %v", expected, got)
-	}
+	assert.True(t, slices.Equal(sorted(a.Values()), expected), "RetainAll: expected %v, got %v", expected, sorted(a.Values()))
 }
 
 // ---------- edge cases ----------
@@ -333,34 +248,18 @@ func TestEmptySetOperations(t *testing.T) {
 	empty := New[int]()
 	full := Of(1, 2, 3)
 
-	if u := empty.Union(full); !u.Equal(full) {
-		t.Error("union with empty should return other set")
-	}
-	if inter := empty.Intersection(full); !inter.IsEmpty() {
-		t.Error("intersection with empty should be empty")
-	}
-	if diff := full.Difference(empty); !diff.Equal(full) {
-		t.Error("difference with empty should return original set")
-	}
-	if diff := empty.Difference(full); !diff.IsEmpty() {
-		t.Error("empty minus full should be empty")
-	}
-	if !empty.IsSubsetOf(full) {
-		t.Error("empty set is subset of every set")
-	}
-	if !empty.IsDisjoint(full) {
-		t.Error("empty set is disjoint with every set")
-	}
+	assert.True(t, empty.Union(full).Equal(full), "union with empty should return other set")
+	assert.True(t, empty.Intersection(full).IsEmpty(), "intersection with empty should be empty")
+	assert.True(t, full.Difference(empty).Equal(full), "difference with empty should return original set")
+	assert.True(t, empty.Difference(full).IsEmpty(), "empty minus full should be empty")
+	assert.True(t, empty.IsSubsetOf(full), "empty set is subset of every set")
+	assert.True(t, empty.IsDisjoint(full), "empty set is disjoint with every set")
 }
 
 func TestStringTypes(t *testing.T) {
 	s := Of("hello", "world")
-	if s.Len() != 2 {
-		t.Errorf("expected 2, got %d", s.Len())
-	}
-	if !s.Contains("hello") || !s.Contains("world") {
-		t.Error("missing expected string elements")
-	}
+	assert.Equal(t, 2, s.Len())
+	assert.False(t, !s.Contains("hello") || !s.Contains("world"), "missing expected string elements")
 }
 
 // ---------- zero-value set ----------
@@ -368,58 +267,34 @@ func TestStringTypes(t *testing.T) {
 func TestZeroValueAdd(t *testing.T) {
 	var s Set[int]
 	s.Add(1, 2, 3)
-	if s.Len() != 3 {
-		t.Fatalf("expected 3 elements, got %d", s.Len())
-	}
-	if !s.Contains(2) {
-		t.Error("expected set to contain 2")
-	}
+	require.Equal(t, 3, s.Len(), "expected 3 elements")
+	assert.True(t, s.Contains(2), "expected set to contain 2")
 }
 
 func TestZeroValueReadOps(t *testing.T) {
 	var s Set[int]
 
-	if s.Len() != 0 {
-		t.Errorf("expected Len 0, got %d", s.Len())
-	}
-	if !s.IsEmpty() {
-		t.Error("expected zero-value set to be empty")
-	}
-	if s.Contains(1) {
-		t.Error("expected Contains to return false")
-	}
-	if s.ContainsAll(1, 2) {
-		t.Error("expected ContainsAll to return false")
-	}
-	if s.ContainsAny(1, 2) {
-		t.Error("expected ContainsAny to return false")
-	}
-	if v := s.Values(); len(v) != 0 {
-		t.Errorf("expected empty Values, got %v", v)
-	}
-	if str := s.String(); str != "[]" {
-		t.Errorf("expected '[]', got %q", str)
-	}
+	assert.Equal(t, 0, s.Len(), "expected Len 0")
+	assert.True(t, s.IsEmpty(), "expected zero-value set to be empty")
+	assert.False(t, s.Contains(1), "expected Contains to return false")
+	assert.False(t, s.ContainsAll(1, 2), "expected ContainsAll to return false")
+	assert.False(t, s.ContainsAny(1, 2), "expected ContainsAny to return false")
+	assert.Equal(t, 0, len(s.Values()), "expected empty Values")
+	assert.Equal(t, "[]", s.String())
 }
 
 func TestZeroValueClone(t *testing.T) {
 	var s Set[int]
 	c := s.Clone()
-	if !c.IsEmpty() {
-		t.Error("clone of zero-value set should be empty")
-	}
+	assert.True(t, c.IsEmpty(), "clone of zero-value set should be empty")
 	c.Add(1)
-	if s.Contains(1) {
-		t.Error("mutating clone should not affect original")
-	}
+	assert.False(t, s.Contains(1), "mutating clone should not affect original")
 }
 
 func TestZeroValueClear(t *testing.T) {
 	var s Set[int]
 	s.Clear() // should not panic
-	if !s.IsEmpty() {
-		t.Error("expected empty set after clear")
-	}
+	assert.True(t, s.IsEmpty(), "expected empty set after clear")
 }
 
 func TestZeroValueRemove(t *testing.T) {
@@ -431,18 +306,14 @@ func TestZeroValueAddSet(t *testing.T) {
 	var s Set[int]
 	other := Of(1, 2, 3)
 	s.AddSet(other)
-	if !s.Equal(other) {
-		t.Errorf("expected %v, got %v", other.Values(), s.Values())
-	}
+	assert.True(t, s.Equal(other), "expected %v, got %v", other.Values(), s.Values())
 }
 
 func TestZeroValueAddSetEmpty(t *testing.T) {
 	var s Set[int]
 	var other Set[int]
 	s.AddSet(other) // should not panic
-	if !s.IsEmpty() {
-		t.Error("expected empty set")
-	}
+	assert.True(t, s.IsEmpty(), "expected empty set")
 }
 
 func TestZeroValueRemoveSet(t *testing.T) {
@@ -455,45 +326,23 @@ func TestZeroValueRetainAll(t *testing.T) {
 	var s Set[int]
 	other := Of(1, 2)
 	s.RetainAll(other) // should not panic
-	if !s.IsEmpty() {
-		t.Error("expected empty set")
-	}
+	assert.True(t, s.IsEmpty(), "expected empty set")
 }
 
 func TestZeroValueSetAlgebra(t *testing.T) {
 	var empty Set[int]
 	full := Of(1, 2, 3)
 
-	if u := empty.Union(full); !u.Equal(full) {
-		t.Error("union of zero-value with full should equal full")
-	}
-	if u := full.Union(empty); !u.Equal(full) {
-		t.Error("union of full with zero-value should equal full")
-	}
-	if inter := empty.Intersection(full); !inter.IsEmpty() {
-		t.Error("intersection of zero-value with full should be empty")
-	}
-	if diff := empty.Difference(full); !diff.IsEmpty() {
-		t.Error("zero-value minus full should be empty")
-	}
-	if diff := full.Difference(empty); !diff.Equal(full) {
-		t.Error("full minus zero-value should equal full")
-	}
-	if sd := empty.SymmetricDifference(full); !sd.Equal(full) {
-		t.Error("symmetric difference of zero-value and full should equal full")
-	}
-	if !empty.IsSubsetOf(full) {
-		t.Error("zero-value set is subset of every set")
-	}
-	if !full.IsSupersetOf(empty) {
-		t.Error("full set is superset of zero-value set")
-	}
-	if !empty.IsDisjoint(full) {
-		t.Error("zero-value set is disjoint with every set")
-	}
-	if !empty.Equal(New[int]()) {
-		t.Error("zero-value set should equal empty initialized set")
-	}
+	assert.True(t, empty.Union(full).Equal(full), "union of zero-value with full should equal full")
+	assert.True(t, full.Union(empty).Equal(full), "union of full with zero-value should equal full")
+	assert.True(t, empty.Intersection(full).IsEmpty(), "intersection of zero-value with full should be empty")
+	assert.True(t, empty.Difference(full).IsEmpty(), "zero-value minus full should be empty")
+	assert.True(t, full.Difference(empty).Equal(full), "full minus zero-value should equal full")
+	assert.True(t, empty.SymmetricDifference(full).Equal(full), "symmetric difference of zero-value and full should equal full")
+	assert.True(t, empty.IsSubsetOf(full), "zero-value set is subset of every set")
+	assert.True(t, full.IsSupersetOf(empty), "full set is superset of zero-value set")
+	assert.True(t, empty.IsDisjoint(full), "zero-value set is disjoint with every set")
+	assert.True(t, empty.Equal(New[int]()), "zero-value set should equal empty initialized set")
 }
 
 func TestZeroValueIterator(t *testing.T) {
@@ -502,9 +351,7 @@ func TestZeroValueIterator(t *testing.T) {
 	for range s.All() {
 		count++
 	}
-	if count != 0 {
-		t.Errorf("expected 0 iterations, got %d", count)
-	}
+	assert.Equal(t, 0, count, "expected 0 iterations")
 }
 
 // ---------- benchmarks ----------

@@ -34,12 +34,23 @@ func TestOf(t *testing.T) {
 
 func TestAddRemoveContains(t *testing.T) {
 	s := New[string]()
-	s.Add("a", "b", "c")
+	assert.True(t, s.Add("a"), "expected Add to return true for new element")
+	assert.True(t, s.Add("b"), "expected Add to return true for new element")
+	assert.True(t, s.Add("c"), "expected Add to return true for new element")
+	assert.False(t, s.Add("a"), "expected Add to return false for duplicate element")
 	require.Equal(t, 3, s.Len(), "expected 3 elements")
 	assert.True(t, s.Contains("b"), "expected set to contain 'b'")
 	s.Remove("b")
 	assert.False(t, s.Contains("b"), "expected 'b' to be removed")
-	require.Equal(t, 2, s.Len(), "expected 2 elements")
+	assert.True(t, s.Add("b"), "expected Add to return true after element was removed")
+	require.Equal(t, 3, s.Len(), "expected 3 elements")
+}
+
+func TestAddRange(t *testing.T) {
+	s := New[int]()
+	s.AddRange(1, 2, 3, 2, 1)
+	require.Equal(t, 3, s.Len(), "expected 3 unique elements")
+	assert.True(t, s.ContainsAll(1, 2, 3), "expected set to contain all added elements")
 }
 
 func TestContainsAll(t *testing.T) {
@@ -266,7 +277,9 @@ func TestStringTypes(t *testing.T) {
 
 func TestZeroValueAdd(t *testing.T) {
 	var s Set[int]
-	s.Add(1, 2, 3)
+	assert.True(t, s.Add(1), "expected Add to return true for new element on zero-value set")
+	s.Add(2)
+	s.Add(3)
 	require.Equal(t, 3, s.Len(), "expected 3 elements")
 	assert.True(t, s.Contains(2), "expected set to contain 2")
 }

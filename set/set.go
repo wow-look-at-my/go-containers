@@ -27,8 +27,21 @@ func Of[T comparable](elems ...T) Set[T] {
 	return s
 }
 
-// Add inserts one or more elements into the set.
-func (s *Set[T]) Add(elems ...T) {
+// Add inserts elem into the set. It returns true if the element was added,
+// or false if it was already present.
+func (s *Set[T]) Add(elem T) bool {
+	if s.m == nil {
+		s.m = make(map[T]struct{}, 1)
+	}
+	if _, ok := s.m[elem]; ok {
+		return false
+	}
+	s.m[elem] = struct{}{}
+	return true
+}
+
+// AddRange inserts one or more elements into the set.
+func (s *Set[T]) AddRange(elems ...T) {
 	if s.m == nil {
 		s.m = make(map[T]struct{}, len(elems))
 	}

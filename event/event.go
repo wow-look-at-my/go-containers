@@ -13,6 +13,8 @@ import (
 // argument type T. Registered callbacks are held as weak references, so
 // callers must retain their own *func(T) error values to keep them alive.
 // The zero value is ready to use.
+//
+// For callbacks that need multiple arguments, use a struct as T.
 type Event[T any] struct {
 	mu        sync.RWMutex
 	callbacks set.Set[weak.Pointer[func(T) error]]

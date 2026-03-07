@@ -9,13 +9,31 @@ import (
 	"github.com/wow-look-at-my/go-containers/set"
 )
 
-// Event is a thread-safe event dispatcher parameterized by the callback
-// argument type T. Registered callbacks are held as weak references, so
-// callers must retain their own *func(T) error values to keep them alive.
-// The zero value is ready to use.
+// EventArgs is a marker interface that constrains the argument type of an
+// [Event] to a struct embedding [Args]. This prevents using primitive types
+// as event arguments, ensuring callers can always add fields later without
+// breaking the signature.
+type EventArgs interface {
+	eventArgs()
+}
+
+// Args is an embeddable base type that satisfies [EventArgs]. Embed it in
+// your argument struct:
 //
-// For callbacks that need multiple arguments, use a struct as T.
-type Event[T any] struct {
+//	type ClickArgs struct {
+//		event.Args
+//		X, Y int
+//	}
+type Args struct{}
+
+func (Args) eventArgs() {}
+
+// Event is a thread-safe event dispatcher parameterized by a struct argument
+// type T. T must embed [Args] to satisfy the [EventArgs] constraint.
+// Registered callbacks are held as weak references, so callers must retain
+// their own *func(T) error values to keep them alive.
+// The zero value is ready to use.
+type Event[T EventArgs] struct {
 	mu        sync.RWMutex
 	callbacks set.Set[weak.Pointer[func(T) error]]
 }

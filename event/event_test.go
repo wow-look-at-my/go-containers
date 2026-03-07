@@ -171,3 +171,70 @@ func TestDistinctCallbackPointers(t *testing.T) {
 	assert.True(t, e.Subscribe(&cb2))
 	assert.Equal(t, 2, e.Len())
 }
+
+func BenchmarkSubscribe(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, b.N)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+	}
+	b.ResetTimer()
+	for i := range b.N {
+		e.Subscribe(&callbacks[i])
+	}
+}
+
+func BenchmarkInvoke1(b *testing.B) {
+	var e Event[intArgs]
+	cb := func(intArgs) error { return nil }
+	e.Subscribe(&cb)
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	for range b.N {
+		e.Invoke(arg)
+	}
+}
+
+func BenchmarkInvoke10(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, 10)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+		e.Subscribe(&callbacks[i])
+	}
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	for range b.N {
+		e.Invoke(arg)
+	}
+}
+
+func BenchmarkInvoke100(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, 100)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+		e.Subscribe(&callbacks[i])
+	}
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	for range b.N {
+		e.Invoke(arg)
+	}
+}
+
+func BenchmarkConcurrentInvoke(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, 10)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+		e.Subscribe(&callbacks[i])
+	}
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			e.Invoke(arg)
+		}
+	})
+}

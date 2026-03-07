@@ -9,3 +9,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: wow-look-at-my/go-toolchain@v1
+
+      - name: Benchmark
+        uses: wow-look-at-my/go-toolchain@v1
+        with:
+          args: test -bench=. -benchmem -run=^$ ./...

@@ -182,3 +182,76 @@ func TestSingleSubscriberErrorIsReturnedUnwrapped(t *testing.T) {
 	assert.Equal(t, want, err, "one subscriber's error must come back as itself")
 	assert.ErrorIs(t, err, want)
 }
+
+// ---------- benchmarks ----------
+//
+// These measure one implementation on its own. The paired suite that
+// measures the same operations against a hand-rolled equivalent lives in
+// bench_test.go, under BenchmarkCompare* names.
+
+func BenchmarkSubscribe(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, b.N)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+	}
+	b.ResetTimer()
+	for i := range b.N {
+		e.Subscribe(&callbacks[i])
+	}
+}
+
+func BenchmarkInvoke1(b *testing.B) {
+	var e Event[intArgs]
+	cb := func(intArgs) error { return nil }
+	e.Subscribe(&cb)
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	for range b.N {
+		e.Invoke(arg)
+	}
+}
+
+func BenchmarkInvoke10(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, 10)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+		e.Subscribe(&callbacks[i])
+	}
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	for range b.N {
+		e.Invoke(arg)
+	}
+}
+
+func BenchmarkInvoke100(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, 100)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+		e.Subscribe(&callbacks[i])
+	}
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	for range b.N {
+		e.Invoke(arg)
+	}
+}
+
+func BenchmarkConcurrentInvoke(b *testing.B) {
+	var e Event[intArgs]
+	callbacks := make([]func(intArgs) error, 10)
+	for i := range callbacks {
+		callbacks[i] = func(intArgs) error { return nil }
+		e.Subscribe(&callbacks[i])
+	}
+	arg := intArgs{N: 1}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			e.Invoke(arg)
+		}
+	})
+}

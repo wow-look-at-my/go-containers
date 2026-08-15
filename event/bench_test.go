@@ -111,7 +111,7 @@ func eachCount(b *testing.B, event, hand func(b *testing.B, n int)) {
 
 // ---------- dispatch ----------
 
-func BenchmarkInvoke(b *testing.B) {
+func BenchmarkCompareInvoke(b *testing.B) {
 	eachCount(b,
 		func(b *testing.B, n int) {
 			var e Event[intArgs]
@@ -141,9 +141,9 @@ func BenchmarkInvoke(b *testing.B) {
 		})
 }
 
-// BenchmarkInvokeWithErrors makes every callback fail, so the joined-error
+// BenchmarkCompareInvokeWithErrors makes every callback fail, so the joined-error
 // path is measured rather than the nil-return fast path.
-func BenchmarkInvokeWithErrors(b *testing.B) {
+func BenchmarkCompareInvokeWithErrors(b *testing.B) {
 	fail := errors.New("boom")
 	eachCount(b,
 		func(b *testing.B, n int) {
@@ -176,9 +176,9 @@ func BenchmarkInvokeWithErrors(b *testing.B) {
 		})
 }
 
-// BenchmarkConcurrentInvoke dispatches from every core at once. Both
+// BenchmarkCompareConcurrentInvoke dispatches from every core at once. Both
 // implementations take a read lock, so this measures contention on it.
-func BenchmarkConcurrentInvoke(b *testing.B) {
+func BenchmarkCompareConcurrentInvoke(b *testing.B) {
 	eachCount(b,
 		func(b *testing.B, n int) {
 			var e Event[intArgs]
@@ -214,11 +214,11 @@ func BenchmarkConcurrentInvoke(b *testing.B) {
 
 // ---------- subscription ----------
 
-// BenchmarkSubscribe fills a fresh dispatcher with 100 callbacks and reports
+// BenchmarkCompareSubscribe fills a fresh dispatcher with 100 callbacks and reports
 // the per-callback cost. Event keeps its callbacks in a set, so an insert is a
 // hash lookup; the hand-rolled slice scans everything it already holds, which
 // is why its cost per subscriber rises with the size of the dispatcher.
-func BenchmarkSubscribe(b *testing.B) {
+func BenchmarkCompareSubscribe(b *testing.B) {
 	const n = 100
 	pair(b,
 		func(b *testing.B) {
@@ -247,9 +247,9 @@ func BenchmarkSubscribe(b *testing.B) {
 		})
 }
 
-// BenchmarkSubscribeDuplicate re-adds callbacks that are already registered,
+// BenchmarkCompareSubscribeDuplicate re-adds callbacks that are already registered,
 // which is the lookup both implementations do before every insert.
-func BenchmarkSubscribeDuplicate(b *testing.B) {
+func BenchmarkCompareSubscribeDuplicate(b *testing.B) {
 	const n = 100
 	pair(b,
 		func(b *testing.B) {
@@ -278,9 +278,9 @@ func BenchmarkSubscribeDuplicate(b *testing.B) {
 		})
 }
 
-// BenchmarkUnsubscribe removes and re-adds one callback per iteration, so the
+// BenchmarkCompareUnsubscribe removes and re-adds one callback per iteration, so the
 // dispatcher keeps its size across the run.
-func BenchmarkUnsubscribe(b *testing.B) {
+func BenchmarkCompareUnsubscribe(b *testing.B) {
 	const n = 100
 	pair(b,
 		func(b *testing.B) {

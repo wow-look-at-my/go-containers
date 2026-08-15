@@ -118,9 +118,9 @@ func eachSize(b *testing.B, tree, mapsort, slice func(b *testing.B, ks []int)) {
 
 // ---------- writes ----------
 
-// BenchmarkPut builds the whole container from scratch, so the slice's insert
+// BenchmarkComparePut builds the whole container from scratch, so the slice's insert
 // cost and the tree's rebalancing both land in the measurement.
-func BenchmarkPut(b *testing.B) {
+func BenchmarkComparePut(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			b.ResetTimer()
@@ -154,9 +154,9 @@ func BenchmarkPut(b *testing.B) {
 		})
 }
 
-// BenchmarkPutExisting overwrites keys that are already present, so no
+// BenchmarkComparePutExisting overwrites keys that are already present, so no
 // container grows and no element moves.
-func BenchmarkPutExisting(b *testing.B) {
+func BenchmarkComparePutExisting(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -181,9 +181,9 @@ func BenchmarkPutExisting(b *testing.B) {
 		})
 }
 
-// BenchmarkDelete removes and reinserts one key per iteration, so the
+// BenchmarkCompareDelete removes and reinserts one key per iteration, so the
 // container keeps its size and the timing covers both halves of the churn.
-func BenchmarkDelete(b *testing.B) {
+func BenchmarkCompareDelete(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -216,7 +216,7 @@ func BenchmarkDelete(b *testing.B) {
 
 // ---------- reads ----------
 
-func BenchmarkGetHit(b *testing.B) {
+func BenchmarkCompareGetHit(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -241,9 +241,9 @@ func BenchmarkGetHit(b *testing.B) {
 		})
 }
 
-// BenchmarkGetMiss probes keys that are absent: every key here is a multiple
+// BenchmarkCompareGetMiss probes keys that are absent: every key here is a multiple
 // of three, so the +1 never lands.
-func BenchmarkGetMiss(b *testing.B) {
+func BenchmarkCompareGetMiss(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -273,7 +273,7 @@ func BenchmarkGetMiss(b *testing.B) {
 // This is what the tree is for. The map has to sort its keys every time the
 // caller wants them in order; the tree and the slice are already ordered.
 
-func BenchmarkIterateOrdered(b *testing.B) {
+func BenchmarkCompareIterateOrdered(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -315,7 +315,7 @@ func BenchmarkIterateOrdered(b *testing.B) {
 		})
 }
 
-func BenchmarkKeys(b *testing.B) {
+func BenchmarkCompareKeys(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -353,9 +353,9 @@ func BenchmarkKeys(b *testing.B) {
 		})
 }
 
-// BenchmarkRange walks a 100-key window out of the middle. The map cannot do
+// BenchmarkCompareRange walks a 100-key window out of the middle. The map cannot do
 // this without ordering everything first, which is the whole gap.
-func BenchmarkRange(b *testing.B) {
+func BenchmarkCompareRange(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -420,7 +420,7 @@ func rangeBounds(ks []int) (int, int) {
 // Min, Max, Floor and Ceiling have no map equivalent at all: the map has to
 // scan every key. The slice reads them off its ends or by binary search.
 
-func BenchmarkMin(b *testing.B) {
+func BenchmarkCompareMin(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)
@@ -452,7 +452,7 @@ func BenchmarkMin(b *testing.B) {
 		})
 }
 
-func BenchmarkFloor(b *testing.B) {
+func BenchmarkCompareFloor(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
 			m := makeTree(ks)

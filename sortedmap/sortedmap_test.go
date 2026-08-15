@@ -434,3 +434,54 @@ func TestRandomInsertDelete(t *testing.T) {
 		first = false
 	}
 }
+
+// ---------- benchmarks ----------
+//
+// These measure one implementation on its own. The paired suite that
+// measures the same operations against a hand-rolled equivalent lives in
+// bench_test.go, under BenchmarkCompare* names.
+
+func BenchmarkPut(b *testing.B) {
+	m := New[int, int]()
+	b.ResetTimer()
+	for i := range b.N {
+		m.Put(i, i)
+	}
+}
+
+func BenchmarkGet(b *testing.B) {
+	m := New[int, int]()
+	for i := range 1000 {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	for range b.N {
+		m.Get(500)
+	}
+}
+
+func BenchmarkDelete(b *testing.B) {
+	for range b.N {
+		b.StopTimer()
+		m := New[int, int]()
+		for i := range 1000 {
+			m.Put(i, i)
+		}
+		b.StartTimer()
+		for i := range 1000 {
+			m.Delete(i)
+		}
+	}
+}
+
+func BenchmarkIterate(b *testing.B) {
+	m := New[int, int]()
+	for i := range 1000 {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	for range b.N {
+		for range m.All() {
+		}
+	}
+}

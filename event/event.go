@@ -73,8 +73,13 @@ func (e *Event[T]) Len() int {
 // Invoke calls every registered callback with arg. All live callbacks are
 // called even if some return errors. Callbacks whose referents have been
 // garbage collected are silently skipped and removed. The returned error,
-// if non-nil, is the joined collection of all callback errors.
+// if non-nil, is the joined collection of all callback errors; a single
+// subscriber's error is returned as it is, with nothing wrapped around it.
 func (e *Event[T]) Invoke(arg T) error {
+	if done, err := e.invokeOne(arg); done {
+		return err
+	}
+
 	snapshot := e.takeSnapshot()
 	defer e.returnSnapshot(snapshot)
 
@@ -101,6 +106,35 @@ func (e *Event[T]) Invoke(arg T) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// invokeOne dispatches an event that has a single subscriber, which is the
+// common shape. It reports whether it handled the call.
+//
+// One callback needs no buffer: the weak pointer is copied to the stack, the
+// lock is released, and the call happens outside it -- the same ordering the
+// snapshot buys for the general case, without the pool.
+func (e *Event[T]) invokeOne(arg T) (bool, error) {
+	e.mu.RLock()
+	if e.callbacks.Len() != 1 {
+		e.mu.RUnlock()
+		return false, nil
+	}
+	var only weak.Pointer[func(T) error]
+	for wp := range e.callbacks.All() {
+		only = wp
+		break
+	}
+	e.mu.RUnlock()
+
+	cb := only.Value()
+	if cb == nil {
+		e.mu.Lock()
+		e.callbacks.Remove(only)
+		e.mu.Unlock()
+		return true, nil
+	}
+	return true, (*cb)(arg)
 }
 
 // takeSnapshot copies the registered callbacks into a recycled buffer. Invoke

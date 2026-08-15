@@ -80,13 +80,14 @@ Every benchmark measures the library type against the code a caller writes
 instead, on the same workload. Reproduce with `go-toolchain` in the repo root;
 the figures below are one linux/amd64 run, so read the ratios, not the digits.
 
-**set** matches a hand-rolled `map[T]struct{}` almost everywhere -- membership,
-iteration, Clone, Values, and the algebra are all within a few percent, because
-they are the same loops. Two differences are real: `Add` reports whether the
-element was new, which the bare `m[k] = struct{}{}` does not (24ns vs 19ns to
-fill, 7.7ns vs 14.3ns to re-add), and `Intersection` iterates the smaller side,
-so a 10-element set against a 100,000-element one takes 722ns where the obvious
-loop over the receiver takes 1.30ms.
+**set** matches a hand-rolled `map[T]struct{}` everywhere the two do the same
+work: membership, Add, Remove, iteration, Clone, Values, and the algebra are
+all within a few percent, because they are the same loops. Two differences are
+real, and both favour the library. `Add` reports whether the element was new
+and still costs one hash (18.9ns vs 18.6ns to fill, 9.6ns vs 14.7ns to re-add,
+where the hand-rolled version has to look up and then assign). `Intersection`
+iterates the smaller side, so a 10-element set against a 100,000-element one
+takes 698ns where the obvious loop over the receiver takes 1.36ms.
 
 **sortedmap** is the trade a tree always is. A plain map wins every point
 operation (Get 9ns vs 124ns at 10,000 keys). The tree wins the moment order is
@@ -95,11 +96,14 @@ a 100-key Range 1.07µs vs 722µs, Min 4ns vs 90µs, Floor 140ns vs 129µs. A
 sorted slice reads faster than the tree and writes far slower (Put 743ns vs
 263ns, Delete 4.5µs vs 875ns at 10,000 keys).
 
-**event** costs about 4x a mutex-guarded callback slice on dispatch (2.18µs vs
-234ns at 100 subscribers), plus one allocation per Invoke. That buys two things
-the slice does not have: callbacks held weakly, so a dead subscriber cannot
-leak through the event, and a snapshot taken before dispatch, so a callback may
-subscribe or unsubscribe without deadlocking.
+**event** dispatches without allocating at any subscriber count. One
+subscriber -- the common shape -- costs 52ns and returns its error unwrapped;
+past that, dispatch runs about 10x a mutex-guarded callback slice (1.89µs vs
+176ns at 100 subscribers). That gap is the weak reference: reading each
+callback through a `weak.Pointer` is what keeps a dead subscriber from leaking
+through the event, and it is paid per callback per dispatch. The slice holds
+its subscribers alive forever instead, and dispatches while still holding its
+lock, so a callback that subscribes there deadlocks.
 
 ## Development
 

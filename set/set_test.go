@@ -366,3 +366,11 @@ func TestZeroValueIterator(t *testing.T) {
 	}
 	assert.Equal(t, 0, count, "expected 0 iterations")
 }
+
+func TestRemoveMultiple(t *testing.T) {
+	s := Of(1, 2, 3, 4)
+	s.Remove(2, 3, 99)
+	assert.Equal(t, 2, s.Len(), "expected the two named elements to go, and the absent one to be ignored")
+	assert.True(t, s.ContainsAll(1, 4))
+	assert.False(t, s.ContainsAny(2, 3))
+}

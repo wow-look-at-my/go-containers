@@ -171,3 +171,14 @@ func TestDistinctCallbackPointers(t *testing.T) {
 	assert.True(t, e.Subscribe(&cb2))
 	assert.Equal(t, 2, e.Len())
 }
+
+func TestSingleSubscriberErrorIsReturnedUnwrapped(t *testing.T) {
+	var e Event[intArgs]
+	want := errors.New("boom")
+	cb := func(intArgs) error { return want }
+	e.Subscribe(&cb)
+
+	err := e.Invoke(intArgs{})
+	assert.Equal(t, want, err, "one subscriber's error must come back as itself")
+	assert.ErrorIs(t, err, want)
+}

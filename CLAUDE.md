@@ -23,11 +23,13 @@ tests with coverage, and builds. Never run a bare `go` command.
   never allocates: one subscriber (`invokeOne`) is copied to the stack and its error returned unwrapped, and more than one rides a pooled buffer
   (`takeSnapshot`). Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback subscribe or unsubscribe.
 - `cmd/example/main.go` — a runnable tour of the packages.
-- `*/bench_test.go` — the comparison suite. Every benchmark runs the same workload on the library type AND on what a caller writes instead: a
+- `*/bench_test.go` — the `BenchmarkCompare*` suite. Every benchmark runs the same workload on the library type AND on what a caller writes instead: a
   `map[T]struct{}` for set, a map-plus-sort and a sorted slice for sortedmap, a mutex-guarded callback slice for event. Sub-benchmarks are named
   `n=<size>/<impl>` so `benchstat` can diff them. Results go to package-level sinks, or the compiler deletes the work being measured. The event
   baseline is deliberately NOT equivalent — it holds callbacks strongly and dispatches under the lock, which is what the event's weak references and
   its pre-dispatch snapshot cost. Headline findings live in README.md.
+- The plain `Benchmark*` functions at the foot of each `*_test.go` measure one implementation alone. They predate the comparison suite and are NOT
+  superseded by it: the two answer different questions, and the Compare prefix exists so both keep their names. Do not delete them.
 - `.github/workflows/ci.yml` — one `build` job running `wow-look-at-my/go-toolchain@v1`. The permissions block is the one go-toolchain documents;
   every entry in it guards a hard failure.
 

@@ -374,3 +374,67 @@ func TestRemoveMultiple(t *testing.T) {
 	assert.True(t, s.ContainsAll(1, 4))
 	assert.False(t, s.ContainsAny(2, 3))
 }
+
+// ---------- benchmarks ----------
+//
+// These measure one implementation on its own. The paired suite that
+// measures the same operations against a hand-rolled equivalent lives in
+// bench_test.go, under BenchmarkCompare* names.
+
+func BenchmarkContains(b *testing.B) {
+	s := New[int](1000)
+	for i := range 1000 {
+		s.Add(i)
+	}
+	b.ResetTimer()
+	for range b.N {
+		s.Contains(500)
+	}
+}
+
+func BenchmarkAdd(b *testing.B) {
+	s := New[int](b.N)
+	b.ResetTimer()
+	for i := range b.N {
+		s.Add(i)
+	}
+}
+
+func BenchmarkUnion(b *testing.B) {
+	a := New[int](1000)
+	c := New[int](1000)
+	for i := range 1000 {
+		a.Add(i)
+		c.Add(i + 500)
+	}
+	b.ResetTimer()
+	for range b.N {
+		a.Union(c)
+	}
+}
+
+func BenchmarkIntersection(b *testing.B) {
+	a := New[int](1000)
+	c := New[int](1000)
+	for i := range 1000 {
+		a.Add(i)
+		c.Add(i + 500)
+	}
+	b.ResetTimer()
+	for range b.N {
+		a.Intersection(c)
+	}
+}
+
+func BenchmarkDifference(b *testing.B) {
+	a := New[int](1000)
+	c := New[int](1000)
+	for i := range 1000 {
+		a.Add(i)
+		c.Add(i + 500)
+	}
+	b.ResetTimer()
+	for range b.N {
+		a.Difference(c)
+	}
+}

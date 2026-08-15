@@ -62,7 +62,7 @@ func pair(b *testing.B, set, hand func(b *testing.B)) {
 
 // ---------- membership ----------
 
-func BenchmarkContainsHit(b *testing.B) {
+func BenchmarkCompareContainsHit(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, n int) {
 			s := makeSet(n, 0)
@@ -80,7 +80,7 @@ func BenchmarkContainsHit(b *testing.B) {
 		})
 }
 
-func BenchmarkContainsMiss(b *testing.B) {
+func BenchmarkCompareContainsMiss(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, n int) {
 			s := makeSet(n, 0)
@@ -98,7 +98,7 @@ func BenchmarkContainsMiss(b *testing.B) {
 		})
 }
 
-func BenchmarkContainsAll(b *testing.B) {
+func BenchmarkCompareContainsAll(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			s := makeSet(10000, 0)
@@ -127,7 +127,7 @@ func BenchmarkContainsAll(b *testing.B) {
 
 // ---------- mutation ----------
 
-func BenchmarkAddNew(b *testing.B) {
+func BenchmarkCompareAddNew(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, n int) {
 			b.ResetTimer()
@@ -151,9 +151,9 @@ func BenchmarkAddNew(b *testing.B) {
 		})
 }
 
-// BenchmarkAddExisting measures the re-add path. Set.Add reports whether the
+// BenchmarkCompareAddExisting measures the re-add path. Set.Add reports whether the
 // element was new, which costs it a lookup the bare map assignment skips.
-func BenchmarkAddExisting(b *testing.B) {
+func BenchmarkCompareAddExisting(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			s := makeSet(10000, 0)
@@ -174,7 +174,7 @@ func BenchmarkAddExisting(b *testing.B) {
 		})
 }
 
-func BenchmarkRemove(b *testing.B) {
+func BenchmarkCompareRemove(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			s := makeSet(10000, 0)

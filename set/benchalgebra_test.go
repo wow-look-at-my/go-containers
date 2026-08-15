@@ -9,7 +9,7 @@ import "testing"
 //
 // Each pair holds two 10000-element sets overlapping by half.
 
-func BenchmarkUnion(b *testing.B) {
+func BenchmarkCompareUnion(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			x, y := makeSet(10000, 0), makeSet(10000, 5000)
@@ -34,7 +34,7 @@ func BenchmarkUnion(b *testing.B) {
 		})
 }
 
-func BenchmarkIntersection(b *testing.B) {
+func BenchmarkCompareIntersection(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			x, y := makeSet(10000, 0), makeSet(10000, 5000)
@@ -58,10 +58,10 @@ func BenchmarkIntersection(b *testing.B) {
 		})
 }
 
-// BenchmarkIntersectionLopsided pits a tiny set against a huge one. Set
+// BenchmarkCompareIntersectionLopsided pits a tiny set against a huge one. Set
 // iterates the smaller side; the obvious hand-rolled loop iterates the
 // receiver, so the two differ by the size ratio rather than by a constant.
-func BenchmarkIntersectionLopsided(b *testing.B) {
+func BenchmarkCompareIntersectionLopsided(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			big, small := makeSet(100000, 0), makeSet(10, 0)
@@ -85,7 +85,7 @@ func BenchmarkIntersectionLopsided(b *testing.B) {
 		})
 }
 
-func BenchmarkDifference(b *testing.B) {
+func BenchmarkCompareDifference(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			x, y := makeSet(10000, 0), makeSet(10000, 5000)
@@ -109,7 +109,7 @@ func BenchmarkDifference(b *testing.B) {
 		})
 }
 
-func BenchmarkSymmetricDifference(b *testing.B) {
+func BenchmarkCompareSymmetricDifference(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			x, y := makeSet(10000, 0), makeSet(10000, 5000)
@@ -140,7 +140,7 @@ func BenchmarkSymmetricDifference(b *testing.B) {
 
 // ---------- predicates ----------
 
-func BenchmarkIsSubsetOf(b *testing.B) {
+func BenchmarkCompareIsSubsetOf(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			small, big := makeSet(1000, 0), makeSet(10000, 0)
@@ -167,7 +167,7 @@ func BenchmarkIsSubsetOf(b *testing.B) {
 		})
 }
 
-func BenchmarkEqual(b *testing.B) {
+func BenchmarkCompareEqual(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			x, y := makeSet(10000, 0), makeSet(10000, 0)
@@ -194,9 +194,9 @@ func BenchmarkEqual(b *testing.B) {
 		})
 }
 
-// BenchmarkIsDisjoint uses two sets that share nothing, the worst case: no
+// BenchmarkCompareIsDisjoint uses two sets that share nothing, the worst case: no
 // early exit is possible, so the whole smaller side is probed.
-func BenchmarkIsDisjoint(b *testing.B) {
+func BenchmarkCompareIsDisjoint(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			x, y := makeSet(10000, 0), makeSet(10000, 100000)
@@ -223,7 +223,7 @@ func BenchmarkIsDisjoint(b *testing.B) {
 
 // ---------- bulk reads ----------
 
-func BenchmarkClone(b *testing.B) {
+func BenchmarkCompareClone(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			s := makeSet(10000, 0)
@@ -245,7 +245,7 @@ func BenchmarkClone(b *testing.B) {
 		})
 }
 
-func BenchmarkValues(b *testing.B) {
+func BenchmarkCompareValues(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			s := makeSet(10000, 0)
@@ -267,9 +267,9 @@ func BenchmarkValues(b *testing.B) {
 		})
 }
 
-// BenchmarkIterate walks every element. Set.All returns an iterator function,
+// BenchmarkCompareIterate walks every element. Set.All returns an iterator function,
 // so this measures what that indirection costs against a bare range.
-func BenchmarkIterate(b *testing.B) {
+func BenchmarkCompareIterate(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, n int) {
 			s := makeSet(n, 0)
@@ -295,7 +295,7 @@ func BenchmarkIterate(b *testing.B) {
 		})
 }
 
-func BenchmarkLen(b *testing.B) {
+func BenchmarkCompareLen(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
 			s := makeSet(10000, 0)

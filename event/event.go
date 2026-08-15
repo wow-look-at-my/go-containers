@@ -121,10 +121,9 @@ func (e *Event[T]) takeSnapshot() *[]weak.Pointer[func(T) error] {
 	return buf
 }
 
-// returnSnapshot hands the buffer back, without the callbacks it held: a
-// retained weak pointer would keep a dead subscriber's entry reachable.
+// returnSnapshot hands the buffer back. What it still holds is weak
+// pointers, which keep nothing alive, so there is nothing to clear.
 func (e *Event[T]) returnSnapshot(buf *[]weak.Pointer[func(T) error]) {
-	clear(*buf)
 	*buf = (*buf)[:0]
 	e.snapshots.Put(buf)
 }

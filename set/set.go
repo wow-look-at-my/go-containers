@@ -1,10 +1,7 @@
 // Package set provides a generic Set type backed by a Go map.
 package set
 
-import (
-	"fmt"
-	"maps"
-)
+import "fmt"
 
 // Set is an unordered collection of unique elements of type T.
 // The zero value is an empty set ready to use.
@@ -109,11 +106,15 @@ func (s *Set[T]) Clear() {
 }
 
 // Clone returns a shallow copy of the set.
+//
+// The copy is a range loop, not maps.Clone: for a map whose values are empty
+// structs the loop measured faster, and Clone is on the Union path.
 func (s Set[T]) Clone() Set[T] {
-	if s.m == nil {
-		return New[T]()
+	c := Set[T]{m: make(map[T]struct{}, len(s.m))}
+	for k := range s.m {
+		c.m[k] = struct{}{}
 	}
-	return Set[T]{m: maps.Clone(s.m)}
+	return c
 }
 
 // Values returns a slice containing all elements of the set in

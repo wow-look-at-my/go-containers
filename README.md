@@ -76,9 +76,11 @@ subscriber.
 
 ## Performance
 
-Every benchmark measures the library type against the code a caller writes
-instead, on the same workload. Reproduce with `go-toolchain` in the repo root;
-the figures below are one linux/amd64 run, so read the ratios, not the digits.
+There are two benchmark suites, and both run on every build. `Benchmark*`
+measures one implementation on its own. `BenchmarkCompare*` measures the
+library type against the code a caller writes instead, on the same workload.
+Reproduce with `go-toolchain` in the repo root; the figures below come from the
+comparison suite on one linux/amd64 run, so read the ratios, not the digits.
 
 **set** matches a hand-rolled `map[T]struct{}` everywhere the two do the same
 work: membership, Add, Remove, iteration, Clone, Values, and the algebra are
@@ -113,5 +115,6 @@ Build and test with [go-toolchain](https://github.com/wow-look-at-my/go-toolchai
 go-toolchain
 ```
 
-`cmd/example` is a runnable tour of the packages. The `*/bench_test.go` files
-hold the comparison suite above; it runs as part of every build.
+`cmd/example` is a runnable tour of the packages. The comparison suite lives in
+the `*/bench_test.go` files; the single-implementation benchmarks live at the
+foot of each package's `*_test.go`.

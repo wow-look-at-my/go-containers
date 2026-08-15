@@ -36,6 +36,11 @@ func (Args) eventArgs() {}
 type Event[T EventArgs] struct {
 	mu        sync.RWMutex
 	callbacks set.Set[weak.Pointer[func(T) error]]
+	// snapshots recycles the buffer Invoke copies the callbacks into. The
+	// buffer exists so the lock is released before any callback runs; keeping
+	// it out of the collector's way costs one allocation per event, not one
+	// per dispatch.
+	snapshots sync.Pool
 }
 
 // Subscribe registers a callback with the event. The event stores a weak
@@ -70,14 +75,13 @@ func (e *Event[T]) Len() int {
 // garbage collected are silently skipped and removed. The returned error,
 // if non-nil, is the joined collection of all callback errors.
 func (e *Event[T]) Invoke(arg T) error {
-	e.mu.RLock()
-	snapshot := e.callbacks.Values()
-	e.mu.RUnlock()
+	snapshot := e.takeSnapshot()
+	defer e.returnSnapshot(snapshot)
 
 	var errs []error
 	var dead []weak.Pointer[func(T) error]
 
-	for _, wp := range snapshot {
+	for _, wp := range *snapshot {
 		cb := wp.Value()
 		if cb == nil {
 			dead = append(dead, wp)
@@ -97,4 +101,30 @@ func (e *Event[T]) Invoke(arg T) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// takeSnapshot copies the registered callbacks into a recycled buffer. Invoke
+// calls the callbacks with the lock released, so a callback may subscribe or
+// unsubscribe; the copy is what makes that safe.
+func (e *Event[T]) takeSnapshot() *[]weak.Pointer[func(T) error] {
+	buf, _ := e.snapshots.Get().(*[]weak.Pointer[func(T) error])
+	if buf == nil {
+		buf = new([]weak.Pointer[func(T) error])
+	}
+	*buf = (*buf)[:0]
+
+	e.mu.RLock()
+	for wp := range e.callbacks.All() {
+		*buf = append(*buf, wp)
+	}
+	e.mu.RUnlock()
+	return buf
+}
+
+// returnSnapshot hands the buffer back, without the callbacks it held: a
+// retained weak pointer would keep a dead subscriber's entry reachable.
+func (e *Event[T]) returnSnapshot(buf *[]weak.Pointer[func(T) error]) {
+	clear(*buf)
+	*buf = (*buf)[:0]
+	e.snapshots.Put(buf)
 }

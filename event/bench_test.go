@@ -88,7 +88,7 @@ func newCallbacks(n int) []func(intArgs) error {
 }
 
 // subscriberCounts are the callback counts the dispatch benchmarks sweep.
-var subscriberCounts = []int{1, 10, 100}
+var subscriberCounts = []int{1, 100}
 
 // eachCount runs one pair of implementations at every subscriber count.
 func eachCount(b *testing.B, event, hand func(b *testing.B, n int)) {
@@ -204,31 +204,35 @@ func BenchmarkConcurrentInvoke(b *testing.B) {
 
 // ---------- subscription ----------
 
-// BenchmarkSubscribe adds one callback per iteration to a growing dispatcher.
-// Event stores its callbacks in a set, so a duplicate costs a hash lookup; the
-// hand-rolled slice scans everything it holds to answer the same question.
+// BenchmarkSubscribe fills a fresh dispatcher with 100 callbacks and reports
+// the per-callback cost. Event keeps its callbacks in a set, so an insert is a
+// hash lookup; the hand-rolled slice scans everything it already holds, which
+// is why its cost per subscriber rises with the size of the dispatcher.
 func BenchmarkSubscribe(b *testing.B) {
+	const n = 100
 	pair(b,
 		func(b *testing.B) {
-			var e Event[intArgs]
-			cbs := newCallbacks(b.N)
+			cbs := newCallbacks(n)
 			b.ResetTimer()
-			for i := range b.N {
-				e.Subscribe(&cbs[i])
+			for i := 0; i < b.N; i += n {
+				var e Event[intArgs]
+				for j := range cbs {
+					e.Subscribe(&cbs[j])
+				}
+				sinkCount = e.Len()
 			}
-			b.StopTimer()
-			sinkCount = e.Len()
 			runtime.KeepAlive(cbs)
 		},
 		func(b *testing.B) {
-			var h handRolled[intArgs]
-			cbs := newCallbacks(b.N)
+			cbs := newCallbacks(n)
 			b.ResetTimer()
-			for i := range b.N {
-				h.Subscribe(&cbs[i])
+			for i := 0; i < b.N; i += n {
+				var h handRolled[intArgs]
+				for j := range cbs {
+					h.Subscribe(&cbs[j])
+				}
+				sinkCount = h.Len()
 			}
-			b.StopTimer()
-			sinkCount = h.Len()
 			runtime.KeepAlive(cbs)
 		})
 }

@@ -74,6 +74,33 @@ The argument type must embed `event.Args`. That rules out a bare `int` or
 `string` argument, so an event can gain a field later without breaking every
 subscriber.
 
+## Performance
+
+Every benchmark measures the library type against the code a caller writes
+instead, on the same workload. Reproduce with `go-toolchain` in the repo root;
+the figures below are one linux/amd64 run, so read the ratios, not the digits.
+
+**set** matches a hand-rolled `map[T]struct{}` almost everywhere -- membership,
+iteration, Clone, Values, and the algebra are all within a few percent, because
+they are the same loops. Two differences are real: `Add` reports whether the
+element was new, which the bare `m[k] = struct{}{}` does not (24ns vs 19ns to
+fill, 7.7ns vs 14.3ns to re-add), and `Intersection` iterates the smaller side,
+so a 10-element set against a 100,000-element one takes 722ns where the obvious
+loop over the receiver takes 1.30ms.
+
+**sortedmap** is the trade a tree always is. A plain map wins every point
+operation (Get 9ns vs 124ns at 10,000 keys). The tree wins the moment order is
+asked for, because the map has to sort first: ordered iteration 90µs vs 724µs,
+a 100-key Range 1.07µs vs 722µs, Min 4ns vs 90µs, Floor 140ns vs 129µs. A
+sorted slice reads faster than the tree and writes far slower (Put 743ns vs
+263ns, Delete 4.5µs vs 875ns at 10,000 keys).
+
+**event** costs about 4x a mutex-guarded callback slice on dispatch (2.18µs vs
+234ns at 100 subscribers), plus one allocation per Invoke. That buys two things
+the slice does not have: callbacks held weakly, so a dead subscriber cannot
+leak through the event, and a snapshot taken before dispatch, so a callback may
+subscribe or unsubscribe without deadlocking.
+
 ## Development
 
 Build and test with [go-toolchain](https://github.com/wow-look-at-my/go-toolchain):
@@ -82,4 +109,5 @@ Build and test with [go-toolchain](https://github.com/wow-look-at-my/go-toolchai
 go-toolchain
 ```
 
-`cmd/example` is a runnable tour of the packages.
+`cmd/example` is a runnable tour of the packages. The `*/bench_test.go` files
+hold the comparison suite above; it runs as part of every build.

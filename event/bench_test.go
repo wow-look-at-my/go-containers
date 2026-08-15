@@ -12,12 +12,19 @@ import (
 // the hand-rolled dispatcher below.
 //
 // The two are not the same thing, and the numbers should be read with that in
-// mind. Event holds each callback through a weak.Pointer, so a subscriber that
-// goes away does not stay alive through the event, and every Invoke pays a
-// Value() call per callback to find out whether its referent is still there.
-// The hand-rolled slice holds strong references: it is cheaper per call and it
-// keeps every subscriber alive forever unless the caller remembers to
-// unsubscribe. What these benchmarks price is that guarantee.
+// mind. Event buys two guarantees the hand-rolled slice does not have, and the
+// gap between the two lines is what they cost:
+//
+//   - Weak references. Event holds each callback through a weak.Pointer, so a
+//     subscriber that goes away does not stay alive through the event, and
+//     every Invoke pays a Value() call per callback to learn whether its
+//     referent is still there. The slice holds its callbacks strongly and keeps
+//     every subscriber alive until someone remembers to unsubscribe.
+//   - Re-entrancy. Event snapshots its callbacks under the read lock and
+//     releases the lock before calling any of them, so a callback may subscribe
+//     or unsubscribe. That snapshot is the allocation per Invoke that the
+//     hand-rolled side does not make: it dispatches while still holding the
+//     lock, and a callback that touches the dispatcher there deadlocks.
 
 // Sinks keep a result alive so the compiler cannot delete the work.
 var (

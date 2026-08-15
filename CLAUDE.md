@@ -7,7 +7,9 @@ tests with coverage, and builds. Never run a bare `go` command.
 
 ## Project Structure
 
-- `set/set.go` — `Set[T comparable]`, a map with `struct{}` values behind an API. The zero value is an empty set, so every mutating method takes a
+- `set/set.go` — `Set[T comparable]`, a map with `struct{}` values behind an API. `Add` reports whether the element was new from the length before
+  and after ONE insert, never a lookup plus an insert; `Union` sizes the result for both sides up front rather than cloning the larger and growing it.
+  `Clone` copies with a range loop, which measured faster than `maps.Clone` for an empty-struct map. The zero value is an empty set, so every mutating method takes a
   pointer receiver and creates the map on first use; the read-only and algebraic methods take a value receiver and read a nil map fine. Union,
   Intersection, and IsDisjoint iterate the SMALLER set on purpose, and RemoveSet picks its side the same way.
 - `set/json.go` — a set marshals to a JSON array of its elements and unmarshals from one, replacing whatever it held. An empty array leaves the map
@@ -17,8 +19,15 @@ tests with coverage, and builds. Never run a bare `go` command.
   no natural order. The zero value is NOT usable — the comparison function is nil. Iterators: All, Keys, Values, Backward, and the half-open Range.
 - `event/event.go` — `Event[T EventArgs]`, a thread-safe dispatcher whose callbacks are WEAK pointers, so an event never keeps a dead subscriber
   alive. The caller must retain its own `*func(T) error`. Invoke calls every live callback even after one fails, joins the errors, and drops the
-  callbacks whose referents are gone. T must embed `event.Args`, which is what stops a bare `int` argument that could never gain a field.
+  callbacks whose referents are gone. T must embed `event.Args`, which is what stops a bare `int` argument that could never gain a field. Invoke
+  never allocates: one subscriber (`invokeOne`) is copied to the stack and its error returned unwrapped, and more than one rides a pooled buffer
+  (`takeSnapshot`). Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback subscribe or unsubscribe.
 - `cmd/example/main.go` — a runnable tour of the packages.
+- `*/bench_test.go` — the comparison suite. Every benchmark runs the same workload on the library type AND on what a caller writes instead: a
+  `map[T]struct{}` for set, a map-plus-sort and a sorted slice for sortedmap, a mutex-guarded callback slice for event. Sub-benchmarks are named
+  `n=<size>/<impl>` so `benchstat` can diff them. Results go to package-level sinks, or the compiler deletes the work being measured. The event
+  baseline is deliberately NOT equivalent — it holds callbacks strongly and dispatches under the lock, which is what the event's weak references and
+  its pre-dispatch snapshot cost. Headline findings live in README.md.
 - `.github/workflows/ci.yml` — one `build` job running `wow-look-at-my/go-toolchain@v1`. The permissions block is the one go-toolchain documents;
   every entry in it guards a hard failure.
 

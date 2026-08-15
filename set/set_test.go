@@ -367,62 +367,10 @@ func TestZeroValueIterator(t *testing.T) {
 	assert.Equal(t, 0, count, "expected 0 iterations")
 }
 
-// ---------- benchmarks ----------
-
-func BenchmarkContains(b *testing.B) {
-	s := New[int](1000)
-	for i := range 1000 {
-		s.Add(i)
-	}
-	b.ResetTimer()
-	for range b.N {
-		s.Contains(500)
-	}
-}
-
-func BenchmarkAdd(b *testing.B) {
-	s := New[int](b.N)
-	b.ResetTimer()
-	for i := range b.N {
-		s.Add(i)
-	}
-}
-
-func BenchmarkUnion(b *testing.B) {
-	a := New[int](1000)
-	c := New[int](1000)
-	for i := range 1000 {
-		a.Add(i)
-		c.Add(i + 500)
-	}
-	b.ResetTimer()
-	for range b.N {
-		a.Union(c)
-	}
-}
-
-func BenchmarkIntersection(b *testing.B) {
-	a := New[int](1000)
-	c := New[int](1000)
-	for i := range 1000 {
-		a.Add(i)
-		c.Add(i + 500)
-	}
-	b.ResetTimer()
-	for range b.N {
-		a.Intersection(c)
-	}
-}
-
-func BenchmarkDifference(b *testing.B) {
-	a := New[int](1000)
-	c := New[int](1000)
-	for i := range 1000 {
-		a.Add(i)
-		c.Add(i + 500)
-	}
-	b.ResetTimer()
-	for range b.N {
-		a.Difference(c)
-	}
+func TestRemoveMultiple(t *testing.T) {
+	s := Of(1, 2, 3, 4)
+	s.Remove(2, 3, 99)
+	assert.Equal(t, 2, s.Len(), "expected the two named elements to go, and the absent one to be ignored")
+	assert.True(t, s.ContainsAll(1, 4))
+	assert.False(t, s.ContainsAny(2, 3))
 }

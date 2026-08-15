@@ -33,11 +33,11 @@ func (s *Set[T]) Add(elem T) bool {
 	if s.m == nil {
 		s.m = make(map[T]struct{}, 1)
 	}
-	if _, ok := s.m[elem]; ok {
-		return false
-	}
+	// One insert, and the size decides what it did: a lookup followed by an
+	// insert hashes the element twice to learn the same thing.
+	before := len(s.m)
 	s.m[elem] = struct{}{}
-	return true
+	return len(s.m) != before
 }
 
 // AddRange inserts one or more elements into the set.
@@ -52,6 +52,10 @@ func (s *Set[T]) AddRange(elems ...T) {
 
 // Remove deletes one or more elements from the set.
 func (s *Set[T]) Remove(elems ...T) {
+	if len(elems) == 1 {
+		delete(s.m, elems[0])
+		return
+	}
 	for _, e := range elems {
 		delete(s.m, e)
 	}
@@ -102,6 +106,9 @@ func (s *Set[T]) Clear() {
 }
 
 // Clone returns a shallow copy of the set.
+//
+// The copy is a range loop, not maps.Clone: for a map whose values are empty
+// structs the loop measured faster, and Clone is on the Union path.
 func (s Set[T]) Clone() Set[T] {
 	c := Set[T]{m: make(map[T]struct{}, len(s.m))}
 	for k := range s.m {
@@ -145,7 +152,10 @@ func (s Set[T]) Union(other Set[T]) Set[T] {
 	if big.Len() < small.Len() {
 		big, small = small, big
 	}
-	out := big.Clone()
+	out := Set[T]{m: make(map[T]struct{}, big.Len()+small.Len())}
+	for k := range big.m {
+		out.m[k] = struct{}{}
+	}
 	for k := range small.m {
 		out.m[k] = struct{}{}
 	}

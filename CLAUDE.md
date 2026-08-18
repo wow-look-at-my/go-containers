@@ -23,7 +23,8 @@ tests with coverage, and builds. Never run a bare `go` command.
   fails, joins the errors, and drops the callbacks whose referents are gone. T must embed `event.Args`, which is what stops a bare `int` argument
   that could never gain a field. Event.Invoke never allocates: one subscriber is copied to the stack and its error returned unwrapped, and more
   than one rides a pooled buffer. Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback
-  subscribe or unsubscribe. Shared store lives in `dispatcher[CB]`.
+  subscribe or unsubscribe.
+- `event/dispatcher.go` — private `dispatcher[CB]`, the weak set and snapshot pool both event types share.
 - `cmd/example/main.go` — a runnable tour of the packages.
 - `*/bench_test.go` — the `BenchmarkCompare*` suite. Every benchmark runs the same workload on the library type AND on what a caller writes instead: a
   `map[T]struct{}` for set, a map-plus-sort and a sorted slice for sortedmap, a mutex-guarded callback slice for event. Sub-benchmarks are named

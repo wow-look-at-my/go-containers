@@ -183,6 +183,35 @@ func TestSingleSubscriberErrorIsReturnedUnwrapped(t *testing.T) {
 	assert.ErrorIs(t, err, want)
 }
 
+func TestResultEventInvoke(t *testing.T) {
+	var e ResultEvent[intArgs, int]
+	cb1 := func(a intArgs) (int, error) { return a.N + 1, nil }
+	cb2 := func(a intArgs) (int, error) { return a.N + 2, errors.New("nope") }
+	e.Subscribe(&cb1)
+	e.Subscribe(&cb2)
+
+	got, err := e.Invoke(intArgs{N: 10})
+	require.Error(t, err)
+	assert.ElementsMatch(t, []int{11, 12}, got)
+}
+
+func TestResultEventSingle(t *testing.T) {
+	var e ResultEvent[intArgs, string]
+	cb := func(intArgs) (string, error) { return "ok", nil }
+	e.Subscribe(&cb)
+
+	got, err := e.Invoke(intArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"ok"}, got)
+}
+
+func TestResultEventZeroValue(t *testing.T) {
+	var e ResultEvent[intArgs, int]
+	got, err := e.Invoke(intArgs{N: 1})
+	assert.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 // ---------- benchmarks ----------
 //
 // These measure one implementation on its own. The paired suite that

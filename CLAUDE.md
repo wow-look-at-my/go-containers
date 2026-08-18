@@ -17,11 +17,14 @@ tests with coverage, and builds. Never run a bare `go` command.
 - `sortedmap/sortedmap.go` — `SortedMap[K, V]`, a left-leaning red-black tree. Keys stay in order at all times, so Put, Get, Delete, Min, Max, Floor
   and Ceiling are O(log n) and no walk ever sorts. `New` orders with `cmp.Compare`; `NewWithCompare` takes a comparison function for a key type with
   no natural order. The zero value is NOT usable — the comparison function is nil. Iterators: All, Keys, Values, Backward, and the half-open Range.
-- `event/event.go` — `Event[T EventArgs]`, a thread-safe dispatcher whose callbacks are WEAK pointers, so an event never keeps a dead subscriber
-  alive. The caller must retain its own `*func(T) error`. Invoke calls every live callback even after one fails, joins the errors, and drops the
-  callbacks whose referents are gone. T must embed `event.Args`, which is what stops a bare `int` argument that could never gain a field. Invoke
-  never allocates: one subscriber (`invokeOne`) is copied to the stack and its error returned unwrapped, and more than one rides a pooled buffer
-  (`takeSnapshot`). Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback subscribe or unsubscribe.
+- `event/event.go` — `Event[T EventArgs]` and `ResultEvent[T EventArgs, R any]`, thread-safe dispatchers whose callbacks are WEAK pointers, so an
+  event never keeps a dead subscriber alive. Event callbacks are `*func(T) error`; ResultEvent callbacks are `*func(T) (R, error)` and Invoke
+  returns every live value plus the joined errors. The caller must retain the function pointer. Invoke calls every live callback even after one
+  fails, joins the errors, and drops the callbacks whose referents are gone. T must embed `event.Args`, which is what stops a bare `int` argument
+  that could never gain a field. Event.Invoke never allocates: one subscriber is copied to the stack and its error returned unwrapped, and more
+  than one rides a pooled buffer. Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback
+  subscribe or unsubscribe.
+- `event/dispatcher.go` — private `dispatcher[CB]`, the weak set and snapshot pool both event types share.
 - `cmd/example/main.go` — a runnable tour of the packages.
 - `*/bench_test.go` — the `BenchmarkCompare*` suite. Every benchmark runs the same workload on the library type AND on what a caller writes instead: a
   `map[T]struct{}` for set, a map-plus-sort and a sorted slice for sortedmap, a mutex-guarded callback slice for event. Sub-benchmarks are named

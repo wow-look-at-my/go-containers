@@ -52,6 +52,8 @@ natural order. Iterators: All, Keys, Values, Backward, Range.
 `event.Event[T]` dispatches to callbacks it holds as **weak** references, so a
 subscriber that goes away does not keep itself alive through the event. Keep
 your own `*func(T) error` alive for as long as you want the subscription.
+When subscribers must return a value, use `event.ResultEvent[T, R]` and
+`*func(T) (R, error)` instead.
 
 ```go
 import "github.com/wow-look-at-my/go-containers/event"
@@ -65,10 +67,14 @@ var clicked event.Event[ClickArgs]
 cb := func(a ClickArgs) error { … }
 clicked.Subscribe(&cb)        // keep cb alive yourself
 err := clicked.Invoke(ClickArgs{X: 1, Y: 2})
+
+var queried event.ResultEvent[ClickArgs, int]
+// results, err := queried.Invoke(ClickArgs{X: 1, Y: 2})
 ```
 
 Invoke calls every live callback even when one returns an error, and joins the
-errors. A collected callback is skipped and dropped.
+errors. A collected callback is skipped and dropped. ResultEvent.Invoke also
+returns each callback's value.
 
 The argument type must embed `event.Args`. That rules out a bare `int` or
 `string` argument, so an event can gain a field later without breaking every

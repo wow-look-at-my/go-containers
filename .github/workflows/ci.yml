@@ -17,3 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: wow-look-at-my/go-toolchain@v1
+
+  # Every collection in this repository is a concurrent one, so a green build
+  # must mean that the race detector saw the tests. A plain go-toolchain run
+  # does not enable it, and a data race then reaches master unreported. The
+  # detector needs cgo, and it makes the run slower, so it gets its own job.
+  race:
+    runs-on: ubuntu-latest
+    env:
+      GOFLAGS: -race
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wow-look-at-my/go-toolchain@v1
+        with:
+          cgo: true

@@ -53,6 +53,9 @@ func (s *Stack[T]) Push(value T) {
 //
 // No other goroutine sees a partial range: the values arrive together or not
 // at all.
+//
+// One allocation holds the whole range. The cost is that the last node of a
+// range keeps the memory of the whole range, until a pop takes that one too.
 func (s *Stack[T]) PushRange(values ...T) {
 	if len(values) == 0 {
 		return
@@ -60,13 +63,14 @@ func (s *Stack[T]) PushRange(values ...T) {
 
 	// Build the chain before the loop. The retry then costs one
 	// compare-and-swap, not one per value.
-	var head, tail *node[T]
-	for _, v := range values {
-		head = &node[T]{value: v, next: head}
-		if tail == nil {
-			tail = head
+	nodes := make([]node[T], len(values))
+	for i, v := range values {
+		nodes[i].value = v
+		if i > 0 {
+			nodes[i].next = &nodes[i-1]
 		}
 	}
+	head, tail := &nodes[len(nodes)-1], &nodes[0]
 
 	s.length.Add(int64(len(values)))
 	for {

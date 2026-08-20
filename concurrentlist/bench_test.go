@@ -3,6 +3,7 @@ package concurrentlist
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
 )
@@ -419,9 +420,8 @@ func BenchmarkCompareBlockingProducerConsumer(b *testing.B) {
 			}
 		})
 		for b.Loop() {
-			if err := bl.Append(ctx, 1); err != nil {
-				b.Fatal(err)
-			}
+			require.NoError(b, bl.Append(ctx, 1))
+
 		}
 		b.StopTimer()
 		bl.CompleteAdding()

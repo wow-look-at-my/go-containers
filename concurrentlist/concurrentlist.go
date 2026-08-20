@@ -169,8 +169,14 @@ func (l *List[T]) AppendRange(values ...T) {
 		if n > uint64(len(values)) {
 			n = uint64(len(values))
 		}
+		// One count for the whole run. The count still rises before any
+		// ready flag, which is what keeps Len from going negative.
 		for i := uint64(0); i < n; i++ {
-			l.publish(&s.slots[start+i], values[i])
+			s.slots[start+i].value = values[i]
+		}
+		l.count.Add(int64(n))
+		for i := uint64(0); i < n; i++ {
+			s.slots[start+i].ready.Store(true)
 		}
 		values = values[n:]
 		if len(values) > 0 {

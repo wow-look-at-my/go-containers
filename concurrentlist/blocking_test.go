@@ -277,9 +277,8 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 	for range consumers {
 		consumed.Go(func() {
 			for v := range b.Consume(ctx) {
-				if seen[v].Swap(true) {
-					t.Errorf("value %d came out twice", v)
-				}
+				assert.False(t, seen[v].Swap(true))
+
 				taken.Add(1)
 			}
 		})

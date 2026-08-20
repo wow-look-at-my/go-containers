@@ -5,13 +5,35 @@ import (
 	"sync"
 )
 
-// waiter is one goroutine parked on a semaphore. ready closes when the waiter
-// receives a permit, or when the semaphore completes.
+// waiter is one goroutine parked on a semaphore.
+//
+// ready carries exactly one value: the releaser sends it, and the waiter
+// receives it. A buffer of one keeps the releaser from waiting for the parked
+// goroutine to run, and it leaves the channel empty for the next use.
 type waiter struct {
 	ready   chan struct{}
 	granted bool
 	prev    *waiter
 	next    *waiter
+}
+
+// waiters recycles the parked-goroutine records. A collection whose consumer
+// runs ahead of its producer parks on every element, so a fresh channel per
+// park would be one allocation per element.
+var waiters = sync.Pool{New: func() any { return &waiter{ready: make(chan struct{}, 1)} }}
+
+func getWaiter() *waiter {
+	w := waiters.Get().(*waiter)
+	w.granted = false
+	w.prev, w.next = nil, nil
+	return w
+}
+
+// putWaiter returns w to the pool. The caller must have received the value
+// that a releaser sent, so that the channel is empty.
+func putWaiter(w *waiter) {
+	w.prev, w.next = nil, nil
+	waiters.Put(w)
 }
 
 // sema is a counting semaphore that a context can cancel.
@@ -64,7 +86,7 @@ func (s *sema) release() {
 		s.remove(w)
 		w.granted = true
 		s.mu.Unlock()
-		close(w.ready)
+		w.ready <- struct{}{}
 		return
 	}
 	s.permits++
@@ -99,26 +121,44 @@ func (s *sema) acquire(ctx context.Context) bool {
 		s.mu.Unlock()
 		return false
 	}
-	if err := ctx.Err(); err != nil {
+	if ctx.Err() != nil {
 		s.mu.Unlock()
 		return false
 	}
-	w := &waiter{ready: make(chan struct{})}
+	w := getWaiter()
 	s.enqueue(w)
 	s.mu.Unlock()
 
+	// A context that can never end has a nil channel. One receive costs much
+	// less than a select, and this is the common case.
+	done := ctx.Done()
+	if done == nil {
+		<-w.ready
+		granted := w.granted
+		putWaiter(w)
+		return granted
+	}
+
 	select {
 	case <-w.ready:
-		return w.granted
-	case <-ctx.Done():
+		granted := w.granted
+		putWaiter(w)
+		return granted
+	case <-done:
 		s.mu.Lock()
-		if s.remove(w) {
-			s.mu.Unlock()
+		removed := s.remove(w)
+		s.mu.Unlock()
+		if removed {
+			putWaiter(w)
 			return false
 		}
-		s.mu.Unlock()
+		// A releaser already took this waiter out of the queue, so it
+		// sends the permit. Receive it, or the next user of this record
+		// finds the value.
 		<-w.ready
-		return w.granted
+		granted := w.granted
+		putWaiter(w)
+		return granted
 	}
 }
 
@@ -144,7 +184,7 @@ func (s *sema) complete() {
 	s.mu.Unlock()
 
 	for _, w := range woken {
-		close(w.ready)
+		w.ready <- struct{}{}
 	}
 }
 

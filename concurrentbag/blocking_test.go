@@ -1,6 +1,7 @@
 package concurrentbag
 
 import (
+	"slices"
 	"context"
 	"sync"
 	"sync/atomic"
@@ -159,6 +160,7 @@ func TestBlockingBagReadsDoNotRemove(t *testing.T) {
 	_, ok := b.TryPeek()
 	require.True(t, ok)
 	assert.ElementsMatch(t, []int{0, 1, 2}, b.Values())
+	assert.ElementsMatch(t, []int{0, 1, 2}, slices.Collect(b.All()))
 	assert.Equal(t, 3, b.Len())
 }
 

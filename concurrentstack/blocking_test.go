@@ -1,6 +1,7 @@
 package concurrentstack
 
 import (
+	"slices"
 	"context"
 	"sync"
 	"sync/atomic"
@@ -153,6 +154,7 @@ func TestBlockingStackReadsDoNotRemove(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 2, v)
 	assert.Equal(t, []int{2, 1, 0}, b.Values())
+	assert.Equal(t, []int{2, 1, 0}, slices.Collect(b.All()))
 	assert.Equal(t, 3, b.Len())
 }
 

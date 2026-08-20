@@ -1,6 +1,7 @@
 package concurrentlist
 
 import (
+	"slices"
 	"context"
 	"sync"
 	"sync/atomic"
@@ -241,6 +242,7 @@ func TestBlockingValuesDoesNotRemove(t *testing.T) {
 		require.True(t, b.TryAppend(i))
 	}
 	assert.Equal(t, []int{0, 1, 2, 3}, b.Values())
+	assert.Equal(t, []int{0, 1, 2, 3}, slices.Collect(b.All()))
 	assert.Equal(t, 4, b.Len())
 }
 

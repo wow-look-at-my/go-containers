@@ -1,7 +1,12 @@
 # go-containers
 
-Generic container types for Go: a set, a sorted map, and a weak-referenced
-event. Pure Go, one dependency (testify, tests only).
+Generic container types for Go: a set, a sorted map, a weak-referenced event,
+and a family of concurrent collections — a sharded map, a lock-free ordered
+list, a lock-free stack and bag, and a blocking twin of each. Pure Go, one
+dependency (testify, tests only).
+
+Every concurrent type keeps its synchronization inside itself. No caller ever
+takes a lock, and no method hands one back.
 
 ```bash
 go get github.com/wow-look-at-my/go-containers
@@ -80,6 +85,72 @@ The argument type must embed `event.Args`. That rules out a bare `int` or
 `string` argument, so an event can gain a field later without breaking every
 subscriber.
 
+## concurrentmap
+
+`concurrentmap.Map[K, V]` shards its keys across independently locked
+partitions, after .NET's `ConcurrentDictionary`. Two goroutines that touch
+different shards never wait for each other.
+
+```go
+hits := concurrentmap.New[string, int]()
+hits.AddOrUpdate("/index", 1, func(_ string, old int) int { return old + 1 })
+cfg, _ := hits.LoadOrCompute("/slow", expensiveToBuild)  // runs once, ever
+```
+
+`LoadOrCompute`, `AddOrUpdate` and `Compute` run your function under the shard
+lock, so it runs **exactly once** and the whole operation is atomic. That is
+the one thing `sync.Map` and `ConcurrentDictionary` cannot promise. The rule it
+buys: the function must not call back into the same map.
+
+Also: `Store`, `Load`, `TryAdd`, `LoadOrStore`, `Delete`, `LoadAndDelete`,
+`Len`, `Clear`, the `All`/`Keys`/`Values` iterators, `ToMap`, and the
+package-level `CompareAndSwap` and `CompareAndDelete`. `New` is required; the
+zero value panics with a message that says so.
+
+## concurrentlist, concurrentstack, concurrentbag
+
+Three lock-free collections that differ only in the order they give back.
+
+```go
+l := concurrentlist.New[int]()   // first in, first out
+st := concurrentstack.New[int]() // last in, first out
+bag := concurrentbag.New[int]()  // no order, fastest under contention
+
+l.AppendRange(1, 2, 3)           // one atomic add for the whole run
+v, ok := l.TryTake()             // 1
+```
+
+Each has bulk methods that cost one atomic operation and one allocation for a
+whole run, `TryPeek`, an `All` iterator and `Values` that remove nothing, and
+an O(1) `Len`. None of them uses a mutex anywhere.
+
+The bag is the one to reach for when order does not matter: it shards, so its
+adds and takes scale where the others contend on one head.
+
+## The blocking collections
+
+Each of the three has a blocking twin with the same name and the same
+vocabulary: `concurrentlist.BlockingList`, `concurrentstack.BlockingStack`,
+`concurrentbag.BlockingBag`. They are .NET's `BlockingCollection`, one per
+order instead of one wrapper around all of them.
+
+```go
+queue := concurrentlist.NewBlocking[Job](concurrentlist.WithCapacity(64))
+
+go func() {
+	for job := range queue.Consume(ctx) { work(job) }  // blocks until done
+}()
+
+queue.Append(ctx, job)   // blocks while full
+queue.CompleteAdding()   // consumers drain, then Consume returns
+```
+
+A bounded collection makes an add wait while it is full, which stops producers
+running away from consumers. Every wait ends on a context, so no caller can be
+stuck. After `CompleteAdding` the consumers drain what is left and then see
+`ErrCompleted` — the same error value in all three packages, so one consumer
+handles any of them.
+
 ## Performance
 
 There are two benchmark suites, and both run on every build. `Benchmark*`
@@ -113,13 +184,58 @@ through the event, and it is paid per callback per dispatch. The slice holds
 its subscribers alive forever instead, and dispatches while still holding its
 lock, so a callback that subscribes there deadlocks.
 
+The concurrent figures below are **medians of five runs** on one 4-vCPU
+sandbox, at `--benchtime 200ms`. Single runs of the same code moved by up to 3x
+here, so anything under about 1.5x is noise. `p=N` means N x GOMAXPROCS
+goroutines. The comparisons are against a mutex around a map or a slice,
+`sync.Map`, and a buffered channel.
+
+**concurrentbag** is the clearest win, and the reason is that it is the only
+one of the four that shards a lock-free structure. Against a mutex-guarded
+slice it takes 2.1-2.5x less time on parallel adds (31/37/41ns vs 65/94/91ns at
+p=1/4/16) and 2.1-2.9x less on parallel takes (60/66/86ns vs 148/189/180ns). It
+also beats a buffered channel on both. `Len` is a sum of padded counters: 3.5ns
+against 57-92ns, and it does not degrade with parallelism.
+
+**concurrentstack** wins the contended push (62/66/66ns, flat, against
+62/91/85ns) and `Len` (0.6ns against 80-96ns), and ties on pops. It **loses**
+the mixed push-and-pop workload badly: 213-222ns against 144-178ns for the
+mutex, and 74-77ns for a channel. One allocation per push, plus pointer chasing
+through a cold chain, is more than a single uncontended mutex costs.
+
+**concurrentlist** wins the contended append (122-223ns against 240-247ns), and
+`Len` (2.2ns against 17.8ns). On a round trip of one append and one take it is
+flat at about 202ns, where the mutex queue runs 143ns at p=1 and 184-194ns
+under real contention — so the mutex wins uncontended and the two converge as
+contention rises. A buffered channel wins that workload outright at 84-92ns,
+and it is the right answer whenever a fixed-size FIFO handoff is all you need.
+The list earns its place on the things a channel cannot do at all: read without
+removing, bulk transfer, no fixed bound, and `TryTake` that never blocks.
+
+**concurrentmap** wins contended writes against a mutex-guarded map by 2.6-2.8x
+(115-120ns against 164-326ns) and contended `LoadOrStore` by 4-5x (19-21ns
+against 86-92ns), and it never allocates where `sync.Map` allocates two per
+store. `Len` costs 217ns against 84.7µs for counting a `sync.Map` by hand. It
+**loses** reads to `sync.Map` (28-30ns against 7.5-8.1ns), which is an atomic
+load of an immutable map and hard to beat, and it loses a 90/10 read-write
+mix to both alternatives. If a workload is read-mostly over a stable key set,
+use `sync.Map`. Reach for this when writes contend, when `Len` is on a hot
+path, or when you need the exactly-once `Compute` family.
+
+The methodology, including the two rules that keep a concurrent benchmark from
+lying, is in [docs/concurrency.md](docs/concurrency.md).
+
 ## Development
 
 Build and test with [go-toolchain](https://github.com/wow-look-at-my/go-toolchain):
 
 ```bash
-go-toolchain
+go-toolchain                        # build, vet, test, benchmark
+GOFLAGS=-race go-toolchain --cgo    # the same, under the race detector
 ```
+
+The second command is not optional for a change to a concurrent package: a
+plain `go-toolchain` run does not enable the race detector. CI runs both.
 
 `cmd/example` is a runnable tour of the packages. The comparison suite lives in
 the `*/bench_test.go` files; the single-implementation benchmarks live at the

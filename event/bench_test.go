@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -28,9 +29,13 @@ import (
 //     ride a pooled buffer.
 
 // Sinks keep a result alive so the compiler cannot delete the work.
+// A parallel benchmark must use sinkShared, never the plain sinks. Several
+// goroutines write the sink there, and a plain variable makes that a data race
+// that the detector fails the run over.
+var sinkShared atomic.Int64
+
 var (
 	sinkErr   error
-	sinkInt   int
 	sinkCount int
 )
 
@@ -88,7 +93,11 @@ func newCallbacks(n int) []func(intArgs) error {
 	cbs := make([]func(intArgs) error, n)
 	for i := range cbs {
 		cbs[i] = func(a intArgs) error {
-			sinkInt = a.N
+			// A dispatch benchmark can run this callback on several
+			// goroutines at once, so the sink has to be atomic. Both
+			// implementations share these callbacks, so the cost is equal
+			// on both sides of the comparison.
+			sinkShared.Add(int64(a.N))
 			return nil
 		}
 	}
@@ -189,9 +198,13 @@ func BenchmarkCompareConcurrentInvoke(b *testing.B) {
 			arg := intArgs{N: 1}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
+				failures := 0
 				for pb.Next() {
-					sinkErr = e.Invoke(arg)
+					if e.Invoke(arg) != nil {
+						failures++
+					}
 				}
+				sinkShared.Add(int64(failures))
 			})
 			runtime.KeepAlive(cbs)
 		},
@@ -204,9 +217,13 @@ func BenchmarkCompareConcurrentInvoke(b *testing.B) {
 			arg := intArgs{N: 1}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
+				failures := 0
 				for pb.Next() {
-					sinkErr = h.Invoke(arg)
+					if h.Invoke(arg) != nil {
+						failures++
+					}
 				}
+				sinkShared.Add(int64(failures))
 			})
 			runtime.KeepAlive(cbs)
 		})

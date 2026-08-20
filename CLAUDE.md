@@ -25,6 +25,21 @@ tests with coverage, and builds. Never run a bare `go` command.
   than one rides a pooled buffer. Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback
   subscribe or unsubscribe.
 - `event/dispatcher.go` — private `dispatcher[CB]`, the weak set and snapshot pool both event types share.
+- `concurrentmap/concurrentmap.go` — `Map[K, V]`, keys sharded across independently locked partitions, after .NET's ConcurrentDictionary.
+  `hash/maphash.Comparable` picks the shard; each shard is padded to 128 bytes so two never share a cache line. The zero value is NOT
+  usable and every method says so with a panic that names New. The callbacks of LoadOrCompute, AddOrUpdate and Compute run UNDER the
+  shard lock, so each runs exactly once and the operation is atomic — .NET runs its delegate outside the lock and cannot promise either.
+- `concurrentlist/concurrentlist.go` — `List[T]`, a lock-free first-in-first-out collection over a chain of contiguous segments. An
+  append reserves one slot with one atomic add; a per-slot ready flag publishes the value and is what makes the plain value field
+  race-free. A take never clears its slot, because that write would race with All. The zero value is an empty list.
+- `concurrentstack/concurrentstack.go` — `Stack[T]`, a lock-free Treiber stack. `concurrentbag/concurrentbag.go` — `Bag[T]`, sharded
+  Treiber chains with stealing, shard picked by `math/rand/v2` because Go exposes no P identity. Neither ever recycles a node, which is
+  the whole ABA argument: never add a free list or a node pool. PushRange and AddRange allocate a run as ONE `[]node[T]`.
+- `internal/blocking/` — the bounding, blocking and completion core the three Blocking types share, over the `Store[T]` contract
+  (`TryAdd`/`TryTake`/`Len`). Each park allocates its own channel on purpose: a pool would break `testing/synctest` for every caller.
+  Depth for all of the above: docs/concurrency.md.
+- `*/blocking.go` — `BlockingList`, `BlockingStack`, `BlockingBag`: one core, three vocabularies (Append/Take, Push/Pop, Add/Take).
+  Each package re-exports the same `ErrCompleted` value and its own `WithCapacity`, so one consumer handles all three.
 - `cmd/example/main.go` — a runnable tour of the packages.
 - `*/bench_test.go` — the `BenchmarkCompare*` suite. Every benchmark runs the same workload on the library type AND on what a caller writes instead: a
   `map[T]struct{}` for set, a map-plus-sort and a sorted slice for sortedmap, a mutex-guarded callback slice for event. Sub-benchmarks are named
@@ -48,3 +63,10 @@ tests with coverage, and builds. Never run a bare `go` command.
 - Keep `README.md` current when a package gains or loses API. It is the human
   front page: short, with one example per package.
 - This file is an index. Depth belongs in `docs/<topic>.md` with a pointer here.
+
+## Concurrency
+
+- Depth on every concurrent collection lives in `docs/concurrency.md`: the segment layout, the ABA argument, the blocking core, and
+  the two rules that keep the concurrent benchmarks honest.
+- `go-toolchain` on its own does NOT run the tests under the race detector. Run `GOFLAGS=-race go-toolchain --cgo` before you trust a
+  change to any of these packages. CI has a second job that does exactly that, because green must mean race-checked here.

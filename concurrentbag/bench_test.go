@@ -25,6 +25,15 @@ const (
 
 	// bulkSize is the batch length the AddRange benchmark adds per operation.
 	bulkSize = 64
+
+	// refillBatch is the number of values a take loop puts back when it finds
+	// the container empty. A larger batch keeps the measured takes on a
+	// populated container instead of an empty one.
+	refillBatch = 1024
+
+	// steady is the number of values the mixed benchmark starts with, so a
+	// take there reads a populated container.
+	steady = 4096
 )
 
 // parallelisms is the b.SetParallelism sweep, in multiples of GOMAXPROCS.
@@ -39,6 +48,17 @@ var sink atomic.Int64
 // the build signature the loops want.
 func newBag() *Bag[int] {
 	return New[int]()
+}
+
+// filledBag builds a bag that holds prefill values.
+func filledBag(prefill int) func() *Bag[int] {
+	return func() *Bag[int] {
+		bag := New[int]()
+		for i := range prefill {
+			bag.Add(i)
+		}
+		return bag
+	}
 }
 
 // mutexBag is a slice behind a mutex, the hand-rolled bag.
@@ -191,9 +211,10 @@ func addLoop[C any](b *testing.B, build func() *C, add func(*C, int)) {
 	sink.Add(1)
 }
 
-// takeLoop measures a take-only workload against a prefilled arena. A take
-// that finds the container empty puts one value back, so the container never
-// gives more than it got. Every implementation follows that same rule.
+// takeLoop measures a take-only workload against a prefilled arena. A
+// container never gives more than it got, so a take that finds it empty puts
+// refillBatch values back. Every measured take therefore also pays for one
+// add. Subtract the add benchmark to isolate the take itself.
 func takeLoop[C any](b *testing.B, build func() *C, take func(*C) (int, bool), add func(*C, int)) {
 	a := newArena(build)
 	b.ResetTimer()
@@ -203,7 +224,9 @@ func takeLoop[C any](b *testing.B, build func() *C, take func(*C) (int, bool), a
 			c := a.cur.Load()
 			v, ok := take(c)
 			if !ok {
-				add(c, 1)
+				for i := range refillBatch {
+					add(c, i)
+				}
 				continue
 			}
 			local += int64(v)
@@ -213,7 +236,9 @@ func takeLoop[C any](b *testing.B, build func() *C, take func(*C) (int, bool), a
 }
 
 // mixedLoop measures one add plus one take per operation. That workload holds
-// the container at a steady size, which is what a bag is built for.
+// the container at a steady size, which is what a bag is built for. The
+// container starts with steady values, so the take reads a populated
+// container and not an empty one.
 func mixedLoop[C any](b *testing.B, build func() *C, add func(*C, int), take func(*C) (int, bool)) {
 	a := newArena(build)
 	b.ResetTimer()
@@ -268,13 +293,7 @@ func BenchmarkCompareAddParallel(b *testing.B) {
 func BenchmarkCompareTakeParallel(b *testing.B) {
 	sweep(b,
 		impl{"bag", func(b *testing.B, g int) {
-			takeLoop(b, func() *Bag[int] {
-				bag := New[int]()
-				for i := range arenaOps * g {
-					bag.Add(i)
-				}
-				return bag
-			}, (*Bag[int]).TryTake, (*Bag[int]).Add)
+			takeLoop(b, filledBag(arenaOps*g), (*Bag[int]).TryTake, (*Bag[int]).Add)
 		}},
 		impl{"mutexslice", func(b *testing.B, g int) {
 			takeLoop(b, func() *mutexBag { return newMutexBag(arenaOps*g, arenaOps*g) },
@@ -292,14 +311,14 @@ func BenchmarkCompareTakeParallel(b *testing.B) {
 func BenchmarkCompareAddTakeParallel(b *testing.B) {
 	sweep(b,
 		impl{"bag", func(b *testing.B, _ int) {
-			mixedLoop(b, newBag, (*Bag[int]).Add, (*Bag[int]).TryTake)
+			mixedLoop(b, filledBag(steady), (*Bag[int]).Add, (*Bag[int]).TryTake)
 		}},
 		impl{"mutexslice", func(b *testing.B, g int) {
-			mixedLoop(b, func() *mutexBag { return newMutexBag(2*arenaOps*g, 0) },
+			mixedLoop(b, func() *mutexBag { return newMutexBag(2*arenaOps*g, steady) },
 				(*mutexBag).add, (*mutexBag).tryTake)
 		}},
 		impl{"chan", func(b *testing.B, g int) {
-			mixedLoop(b, func() *chanBag { return newChanBag(2*arenaOps*g, 0) },
+			mixedLoop(b, func() *chanBag { return newChanBag(2*arenaOps*g, steady) },
 				(*chanBag).add, (*chanBag).tryTake)
 		}},
 	)
@@ -355,13 +374,7 @@ func BenchmarkCompareLenParallel(b *testing.B) {
 	const prefill = 10000
 	sweep(b,
 		impl{"bag", func(b *testing.B, _ int) {
-			lenLoop(b, func() *Bag[int] {
-				bag := New[int]()
-				for i := range prefill {
-					bag.Add(i)
-				}
-				return bag
-			}, (*Bag[int]).Len)
+			lenLoop(b, filledBag(prefill), (*Bag[int]).Len)
 		}},
 		impl{"mutexslice", func(b *testing.B, _ int) {
 			lenLoop(b, func() *mutexBag { return newMutexBag(prefill, prefill) }, (*mutexBag).length)
@@ -433,13 +446,7 @@ func BenchmarkCompareTakeSerial(b *testing.B) {
 	const prefill = arenaOps * 8
 	serial(b,
 		impl{"bag", func(b *testing.B, _ int) {
-			takeSerial(b, func() *Bag[int] {
-				bag := New[int]()
-				for i := range prefill {
-					bag.Add(i)
-				}
-				return bag
-			}, (*Bag[int]).TryTake)
+			takeSerial(b, filledBag(prefill), (*Bag[int]).TryTake)
 		}},
 		impl{"mutexslice", func(b *testing.B, _ int) {
 			takeSerial(b, func() *mutexBag { return newMutexBag(prefill, prefill) }, (*mutexBag).tryTake)

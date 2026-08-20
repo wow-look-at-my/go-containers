@@ -1,6 +1,6 @@
 module github.com/wow-look-at-my/go-containers
 
-go 1.26.7
+go 1.26
 
 require github.com/stretchr/testify v1.11.1
 

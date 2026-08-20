@@ -20,8 +20,11 @@ jobs:
 
   # Every collection in this repository is a concurrent one, so a green build
   # must mean that the race detector saw the tests. A plain go-toolchain run
-  # does not enable it, and a data race then reaches master unreported. The
-  # detector needs cgo, and it makes the run slower, so it gets its own job.
+  # does not enable it, and a data race then reaches master unreported.
+  #
+  # This job tests; the build job above ships. So it builds one native target:
+  # the race detector needs cgo, and it supports neither the cosmo fat APE nor
+  # a cross-compile. autorelease is off because only the build job publishes.
   race:
     runs-on: ubuntu-latest
     env:
@@ -31,3 +34,5 @@ jobs:
       - uses: wow-look-at-my/go-toolchain@v1
         with:
           cgo: true
+          targets: linux/amd64
+          autorelease: false

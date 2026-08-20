@@ -154,11 +154,17 @@ func (b *Bag[T]) AddRange(values ...T) {
 	if len(values) == 0 {
 		return
 	}
-	tail := &node[T]{value: values[0]}
-	head := tail
-	for _, v := range values[1:] {
-		head = &node[T]{value: v, next: head}
+	// One allocation holds the whole range. The cost is that the last node of
+	// a range keeps the memory of the whole range, until a take removes that
+	// one too.
+	nodes := make([]node[T], len(values))
+	for i, v := range values {
+		nodes[i].value = v
+		if i > 0 {
+			nodes[i].next = &nodes[i-1]
+		}
 	}
+	head, tail := &nodes[len(nodes)-1], &nodes[0]
 	b.shards[b.pick()].pushChain(head, tail, int64(len(values)))
 }
 

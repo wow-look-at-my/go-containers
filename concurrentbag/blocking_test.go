@@ -1,8 +1,8 @@
 package concurrentbag
 
 import (
-	"slices"
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"

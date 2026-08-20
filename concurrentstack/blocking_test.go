@@ -1,8 +1,8 @@
 package concurrentstack
 
 import (
-	"slices"
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"

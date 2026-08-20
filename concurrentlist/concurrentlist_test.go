@@ -280,3 +280,29 @@ func TestConcurrentBulkOperations(t *testing.T) {
 	assert.Equal(t, int64(total), got.Load())
 	assert.Equal(t, 0, l.Len())
 }
+
+// TryPeek must follow the chain when the first segment is exhausted, and it
+// must report empty once nothing is left.
+func TestTryPeekCrossesSegments(t *testing.T) {
+	l := New[int]()
+	for i := range initialSegmentLen + 5 {
+		l.Append(i)
+	}
+
+	for range initialSegmentLen {
+		_, ok := l.TryTake()
+		require.True(t, ok)
+	}
+
+	v, ok := l.TryPeek()
+	require.True(t, ok)
+	assert.Equal(t, initialSegmentLen, v)
+
+	for range 5 {
+		_, ok := l.TryTake()
+		require.True(t, ok)
+	}
+	_, ok = l.TryPeek()
+	assert.False(t, ok)
+	assert.True(t, l.IsEmpty())
+}

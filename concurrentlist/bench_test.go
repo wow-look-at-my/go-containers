@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -22,10 +23,15 @@ import (
 // until that is gigabytes.
 
 // Sinks keep a result alive so the compiler cannot delete the work.
+//
+// A parallel benchmark must use sinkShared, never the plain ones. Several
+// goroutines write the sink there, and a plain variable makes that a data
+// race that the detector fails the run over.
 var (
-	sinkInt   int
-	sinkBool  bool
-	sinkSlice []int
+	sinkInt    int
+	sinkBool   bool
+	sinkSlice  []int
+	sinkShared atomic.Int64
 )
 
 // mutexQueue is the first-in-first-out queue that a Go caller writes by hand.
@@ -203,10 +209,14 @@ func BenchmarkCompareRoundTrip(b *testing.B) {
 			}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
+				local := 0
 				for pb.Next() {
 					l.Append(1)
-					sinkInt, sinkBool = l.TryTake()
+					if v, ok := l.TryTake(); ok {
+						local += v
+					}
 				}
+				sinkShared.Add(int64(local))
 			})
 		},
 		func(b *testing.B) {
@@ -216,10 +226,14 @@ func BenchmarkCompareRoundTrip(b *testing.B) {
 			}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
+				local := 0
 				for pb.Next() {
 					q.Append(1)
-					sinkInt, sinkBool = q.TryTake()
+					if v, ok := q.TryTake(); ok {
+						local += v
+					}
 				}
+				sinkShared.Add(int64(local))
 			})
 		},
 		func(b *testing.B) {
@@ -229,10 +243,12 @@ func BenchmarkCompareRoundTrip(b *testing.B) {
 			}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
+				local := 0
 				for pb.Next() {
 					ch <- 1
-					sinkInt = <-ch
+					local += <-ch
 				}
+				sinkShared.Add(int64(local))
 			})
 		})
 }
@@ -416,7 +432,7 @@ func BenchmarkCompareBlockingProducerConsumer(b *testing.B) {
 		var wg sync.WaitGroup
 		wg.Go(func() {
 			for v := range bl.Consume(ctx) {
-				sinkInt = v
+				sinkShared.Add(int64(v))
 			}
 		})
 		for b.Loop() {
@@ -433,7 +449,7 @@ func BenchmarkCompareBlockingProducerConsumer(b *testing.B) {
 		var wg sync.WaitGroup
 		wg.Go(func() {
 			for v := range ch {
-				sinkInt = v
+				sinkShared.Add(int64(v))
 			}
 		})
 		for b.Loop() {

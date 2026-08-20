@@ -25,7 +25,8 @@ const (
 	// that pick at random rarely land on one shard.
 	shardsPerProc = 4
 
-	// minShards keeps a small machine from serialisation on one or two shards.
+	// minShards is the floor on the shard count. A machine with few cores can
+	// still run many goroutines, and two shards do not spread them.
 	minShards = 8
 )
 

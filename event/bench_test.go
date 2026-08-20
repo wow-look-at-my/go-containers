@@ -1,11 +1,11 @@
 package event
 
 import (
-	"sync/atomic"
 	"errors"
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -36,7 +36,6 @@ var sinkShared atomic.Int64
 
 var (
 	sinkErr   error
-	sinkInt   int
 	sinkCount int
 )
 

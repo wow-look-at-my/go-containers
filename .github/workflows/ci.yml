@@ -30,3 +30,4 @@ jobs:
           cgo: true
           targets: linux/amd64
           autorelease: false
+          timeout: '20'

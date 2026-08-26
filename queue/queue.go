@@ -7,8 +7,7 @@ import "iter"
 // minCapacity avoids resizing twice for a queue that stays small.
 const minCapacity = 8
 
-// Queue is a first-in-first-out collection, not safe for concurrent use.
-// The zero value is ready to use; see concurrentqueue.Queue for concurrency.
+// Queue is a first-in-first-out collection, not safe for concurrent use. Zero value ready to use.
 type Queue[T any] struct {
 	buf   []T
 	head  int

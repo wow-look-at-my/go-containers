@@ -258,11 +258,10 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 	b := NewBlocking[int](WithCapacity(capacity))
 	ctx := t.Context()
 
-	// outstanding is successful appends minus successful takes: the exact
-	// quantity Core's free/items semaphores bound to capacity. List.Len()
-	// cannot stand in for it -- the counter rises before a slot's ready flag
-	// publishes, so a concurrent Len() can read high with no ceiling
-	// violation underneath it.
+	// outstanding is successful appends minus takes -- what Core's semaphores actually bound. A consumer's
+	// free-permit release lands inside take(), before Consume yields the value to this test's own
+	// decrement below, so up to one release per consumer goroutine can be legitimately un-decremented
+	// at any instant; the +consumers slack is that bound, not a fudge factor.
 	var outstanding atomic.Int64
 	var overCapacity atomic.Bool
 	var produced sync.WaitGroup
@@ -272,7 +271,7 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 				if err := b.Append(ctx, p*perProducer+i); err != nil {
 					return
 				}
-				if outstanding.Add(1) > capacity {
+				if outstanding.Add(1) > capacity+consumers {
 					overCapacity.Store(true)
 				}
 			}

@@ -241,13 +241,16 @@ use `sync.Map`. Reach for this when writes contend, when `Len` is on a hot
 path, or when you need the exactly-once `Compute` family.
 
 **concurrentset** wraps `concurrentmap.Map[T, struct{}]` rather than sharding
-and locking again from scratch, and a hand-specialized `DirectSet` (same
-sharding, no generic `Map` indirection, no `defer` in the hot path) proves that
-choice is free: Add runs 65/79/80ns for `Set` against 70/79/82ns for
-`DirectSet` at p=1/4/16, and Contains runs 57/59/62ns against 64/60/58ns -- the
-two trade places run to run, which is what "no measurable overhead" looks
-like. Both beat a mutex-guarded `set.Set` throughout (Add 102/107/109ns,
-Contains 78/101/115ns).
+and locking again from scratch, and a `DirectSet` benchmark baseline (same
+sharding, one `set.Set[T]` per shard instead of `concurrentmap`'s generic
+`Map`) shows the wrapper is not just as fast -- for `Add` it is faster: 67/79/80ns
+for `Set` against 104/128/129ns for `DirectSet` at p=1/4/16, both against a
+mutex-guarded `set.Set` at 102/110/113ns. The gap is semantics, not sharding:
+`concurrentmap.Map.TryAdd` checks presence before writing, while `set.Set.Add`
+always writes and compares lengths after, so a hot, mostly-already-present key
+set pays for a map mutation `TryAdd` skips. `Contains` has no such asymmetry
+and the two are within noise (65/60/60ns against 60/61/60ns), both well ahead
+of the mutex baseline (81/105/111ns).
 
 The methodology, including the two rules that keep a concurrent benchmark from
 lying, is in [docs/concurrency.md](docs/concurrency.md).

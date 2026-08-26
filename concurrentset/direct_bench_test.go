@@ -6,14 +6,11 @@ import (
 	"runtime"
 	"sync"
 	"unsafe"
+
+	"github.com/wow-look-at-my/go-containers/set"
 )
 
-// directSet is a hand-specialized concurrent set: the same sharding strategy
-// as concurrentmap (maphash.Comparable picks a padded, independently locked
-// shard), coded directly against T and struct{} instead of routed through
-// concurrentmap.Map[T, struct{}]'s generic API. It exists only to benchmark
-// against Set, to check whether the wrapper's extra call layer costs
-// anything a caller who hand-rolled a set from scratch would not also pay.
+// directSet is concurrentmap's sharding, hand-coded directly against T with no generic Map layer.
 type directSet[T comparable] struct {
 	shards []*directShard[T]
 	seed   maphash.Seed
@@ -22,12 +19,12 @@ type directSet[T comparable] struct {
 
 const directShardBytes = 128
 
-// directPadBytes mirrors concurrentmap's padBytes: struct{} costs the same as any pointer-sized map value.
-const directPadBytes = directShardBytes - unsafe.Sizeof(sync.RWMutex{}) - unsafe.Sizeof(map[int]struct{}(nil))
+// directPadBytes mirrors concurrentmap's padBytes: a set.Set is one map-sized field, same as any pointer-sized map value.
+const directPadBytes = directShardBytes - unsafe.Sizeof(sync.RWMutex{}) - unsafe.Sizeof(set.Set[int]{})
 
 type directShard[T comparable] struct {
 	mu sync.RWMutex
-	m  map[T]struct{}
+	s  set.Set[T]
 	_  [directPadBytes]byte
 }
 
@@ -40,7 +37,7 @@ func newDirectSet[T comparable]() *directSet[T] {
 		mask:   uint64(n - 1),
 	}
 	for i := range ds.shards {
-		ds.shards[i] = &directShard[T]{m: make(map[T]struct{})}
+		ds.shards[i] = &directShard[T]{s: set.New[T]()}
 	}
 	return ds
 }
@@ -49,23 +46,19 @@ func (d *directSet[T]) shardFor(v T) *directShard[T] {
 	return d.shards[maphash.Comparable(d.seed, v)&d.mask]
 }
 
-// Add has no defer, unlike concurrentmap.Map.TryAdd -- removing every difference lets the benchmark isolate the wrapper's own cost.
+// Add skips the defer TryAdd uses -- removing every difference isolates the wrapper's own cost.
 func (d *directSet[T]) Add(v T) bool {
 	s := d.shardFor(v)
 	s.mu.Lock()
-	if _, ok := s.m[v]; ok {
-		s.mu.Unlock()
-		return false
-	}
-	s.m[v] = struct{}{}
+	added := s.s.Add(v)
 	s.mu.Unlock()
-	return true
+	return added
 }
 
 func (d *directSet[T]) Contains(v T) bool {
 	s := d.shardFor(v)
 	s.mu.RLock()
-	_, ok := s.m[v]
+	ok := s.s.Contains(v)
 	s.mu.RUnlock()
 	return ok
 }

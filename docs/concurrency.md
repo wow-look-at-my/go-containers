@@ -33,10 +33,14 @@ hash table, and a lock-free hash table in Go costs an interface box or an
 goroutines that touch different shards never wait for each other.
 
 `concurrentset`'s own bench_test.go carries a `DirectSet`: the same sharding
-strategy coded directly against `T` and `struct{}`, with no `Map` indirection
-and no `defer` in `Add`. It exists only to check the wrapper's cost, and the
-benchmark shows none -- `Set` and `DirectSet` trade places run to run within
-noise, at every parallelism level.
+strategy, hand-coded directly against `T` with one `set.Set[T]` per shard
+instead of routing through `concurrentmap.Map`. It exists to check the
+wrapper's cost, and `Add` shows the wrapper WINS: `concurrentmap.Map.TryAdd`
+checks presence before writing, while `set.Set.Add` always writes and
+compares lengths after to learn what it did. A hot key set that is mostly
+already present pays for a write `TryAdd` skips -- the wrapper is faster
+because its semantics are cheaper, not because sharding differs. `Contains`
+reads have no such asymmetry and land within noise of each other.
 
 ## concurrentlist: the segment chain
 

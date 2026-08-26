@@ -13,8 +13,7 @@ import (
 )
 
 // Set is an unordered collection of unique elements of type T, safe for
-// concurrent use by multiple goroutines. The zero value is NOT usable --
-// create one with New.
+// concurrent use. Zero value: not usable, use New.
 type Set[T comparable] struct {
 	m *concurrentmap.Map[T, struct{}]
 }

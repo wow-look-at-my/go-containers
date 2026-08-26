@@ -127,6 +127,30 @@ an O(1) `Len`. None of them uses a mutex anywhere.
 The bag is the one to reach for when order does not matter: it shards, so its
 adds and takes scale where the others contend on one head.
 
+## queue, concurrentqueue
+
+`queue.Queue[T]` is a plain, single-goroutine first-in-first-out collection
+over a growable ring buffer. `concurrentqueue.Queue[T]` is the concurrent
+twin, under .NET's `ConcurrentQueue` vocabulary (`Enqueue`/`TryDequeue`)
+rather than concurrentlist's neutral one (`Append`/`Take`) — internally it
+*is* a `concurrentlist.List[T]`, since a FIFO list and a concurrent queue are
+the same lock-free structure and a second implementation would only be a
+second set of concurrency bugs to find.
+
+```go
+q := queue.New[Job]()
+q.Enqueue(job)
+v, ok := q.TryDequeue() // oldest first
+
+cq := concurrentqueue.New[Job]()
+cq.Enqueue(job)          // safe from any goroutine
+v, ok = cq.TryDequeue()
+```
+
+Both have `EnqueueRange`, `TryPeek`, `Len`, `IsEmpty`, `Clear`, `Values`, an
+`All` iterator, and the `TryAdd`/`TryTake` generic-collection names. The zero
+value of either is an empty, ready-to-use queue.
+
 ## The blocking collections
 
 Each of the three has a blocking twin with the same name and the same

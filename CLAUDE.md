@@ -37,6 +37,10 @@ tests with coverage, and builds. Never run a bare `go` command.
 - `concurrentstack/concurrentstack.go` — `Stack[T]`, a lock-free Treiber stack. `concurrentbag/concurrentbag.go` — `Bag[T]`, sharded
   Treiber chains with stealing, shard picked by `math/rand/v2` because Go exposes no P identity. Neither ever recycles a node, which is
   the whole ABA argument: never add a free list or a node pool. PushRange and AddRange allocate a run as ONE `[]node[T]`.
+- `queue/queue.go` — `Queue[T]`, a plain single-goroutine FIFO over a growable ring buffer, in the zero-value-ready style of `set.Set`.
+  `concurrentqueue/concurrentqueue.go` — `Queue[T]`, the concurrent twin under .NET's ConcurrentQueue vocabulary (Enqueue/TryDequeue): a
+  thin facade over `concurrentlist.List[T]`, since a lock-free FIFO list and a concurrent queue are the same structure and a second
+  from-scratch implementation would only be a second set of concurrency bugs to find.
 - `internal/blocking/` — the bounding, blocking and completion core the three Blocking types share, over the `Store[T]` contract
   (`TryAdd`/`TryTake`/`Len`). Each park allocates its own channel on purpose: a pool would break `testing/synctest` for every caller.
   Depth for all of the above: docs/concurrency.md.

@@ -258,6 +258,8 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 	b := NewBlocking[int](WithCapacity(capacity))
 	ctx := t.Context()
 
+	// outstanding: appends minus takes; +consumers below is take()'s pre-yield release lag, not slop.
+	var outstanding atomic.Int64
 	var overCapacity atomic.Bool
 	var produced sync.WaitGroup
 	for p := range producers {
@@ -266,7 +268,7 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 				if err := b.Append(ctx, p*perProducer+i); err != nil {
 					return
 				}
-				if b.Len() > capacity {
+				if outstanding.Add(1) > capacity+consumers {
 					overCapacity.Store(true)
 				}
 			}
@@ -281,6 +283,7 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 			for v := range b.Consume(ctx) {
 				assert.False(t, seen[v].Swap(true))
 
+				outstanding.Add(-1)
 				taken.Add(1)
 			}
 		})

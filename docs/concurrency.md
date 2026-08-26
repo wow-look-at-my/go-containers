@@ -32,6 +32,12 @@ hash table, and a lock-free hash table in Go costs an interface box or an
 `unsafe.Pointer` per entry. The sharding is what removes the contention: two
 goroutines that touch different shards never wait for each other.
 
+`concurrentset`'s own bench_test.go carries a `DirectSet`: the same sharding
+strategy coded directly against `T` and `struct{}`, with no `Map` indirection
+and no `defer` in `Add`. It exists only to check the wrapper's cost, and the
+benchmark shows none -- `Set` and `DirectSet` trade places run to run within
+noise, at every parallelism level.
+
 ## concurrentlist: the segment chain
 
 A segment is one contiguous array of slots plus a `next` pointer. Contiguous

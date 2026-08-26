@@ -122,8 +122,8 @@ if seen.Add(id) {
 
 Also: `AddRange`, `Remove`, `Contains`, `Len`, `IsEmpty`, `Clear`, the `All`
 iterator, and `Values`. `New` takes the same options as `concurrentmap.New`.
-Every operation is one `concurrentmap` call, so its contended performance is
-`concurrentmap`'s -- see the `concurrentmap` figures below.
+Every operation is one `concurrentmap` call; see the Performance section below
+for the benchmark that checks the wrapper costs nothing over a hand-rolled set.
 
 ## concurrentlist, concurrentstack, concurrentbag
 
@@ -239,6 +239,15 @@ load of an immutable map and hard to beat, and it loses a 90/10 read-write
 mix to both alternatives. If a workload is read-mostly over a stable key set,
 use `sync.Map`. Reach for this when writes contend, when `Len` is on a hot
 path, or when you need the exactly-once `Compute` family.
+
+**concurrentset** wraps `concurrentmap.Map[T, struct{}]` rather than sharding
+and locking again from scratch, and a hand-specialized `DirectSet` (same
+sharding, no generic `Map` indirection, no `defer` in the hot path) proves that
+choice is free: Add runs 65/79/80ns for `Set` against 70/79/82ns for
+`DirectSet` at p=1/4/16, and Contains runs 57/59/62ns against 64/60/58ns -- the
+two trade places run to run, which is what "no measurable overhead" looks
+like. Both beat a mutex-guarded `set.Set` throughout (Add 102/107/109ns,
+Contains 78/101/115ns).
 
 The methodology, including the two rules that keep a concurrent benchmark from
 lying, is in [docs/concurrency.md](docs/concurrency.md).

@@ -13,15 +13,14 @@ import (
 )
 
 // Set is an unordered collection of unique elements of type T, safe for
-// concurrent use by multiple goroutines.
-//
-// The zero value is NOT usable. Create a Set with New.
+// concurrent use by multiple goroutines. The zero value is NOT usable --
+// create one with New.
 type Set[T comparable] struct {
 	m *concurrentmap.Map[T, struct{}]
 }
 
-// New creates an empty Set. Options are concurrentmap's: WithConcurrency
-// sets the shard count, WithCapacity hints the total element count.
+// New creates an empty Set. Options are concurrentmap's: WithConcurrency sets
+// the shard count, WithCapacity hints the element count.
 func New[T comparable](opts ...concurrentmap.Option) *Set[T] {
 	return &Set[T]{m: concurrentmap.New[T, struct{}](opts...)}
 }
@@ -68,8 +67,7 @@ func (s *Set[T]) Clear() {
 	s.m.Clear()
 }
 
-// All returns an iterator over the elements of the set. It gives the
-// shard-at-a-time view of concurrentmap.Map.All: a snapshot per shard, not
+// All returns an iterator over the set's elements: a snapshot per shard, not
 // one point in time for the whole set.
 func (s *Set[T]) All() iter.Seq[T] {
 	return s.m.Keys()

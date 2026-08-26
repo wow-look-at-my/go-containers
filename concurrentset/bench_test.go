@@ -71,6 +71,17 @@ func BenchmarkCompareAddContended(b *testing.B) {
 				}
 			})
 		})
+		b.Run(benchName(p, "DirectSet"), func(b *testing.B) {
+			d := newDirectSet[int]()
+			b.SetParallelism(p)
+			b.RunParallel(func(pb *testing.PB) {
+				i := nextStart()
+				for pb.Next() {
+					sinkBool = d.Add(i & hotMask)
+					i++
+				}
+			})
+		})
 	}
 }
 
@@ -100,6 +111,20 @@ func BenchmarkCompareContainsContended(b *testing.B) {
 				i := nextStart()
 				for pb.Next() {
 					sinkBool = m.Contains(i & hotMask)
+					i++
+				}
+			})
+		})
+		b.Run(benchName(p, "DirectSet"), func(b *testing.B) {
+			d := newDirectSet[int]()
+			for k := 0; k < hotKeys; k++ {
+				d.Add(k)
+			}
+			b.SetParallelism(p)
+			b.RunParallel(func(pb *testing.PB) {
+				i := nextStart()
+				for pb.Next() {
+					sinkBool = d.Contains(i & hotMask)
 					i++
 				}
 			})

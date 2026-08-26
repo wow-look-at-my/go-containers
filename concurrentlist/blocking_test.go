@@ -258,8 +258,7 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 	b := NewBlocking[int](WithCapacity(capacity))
 	ctx := t.Context()
 
-	// outstanding is successful appends minus takes -- what Core's semaphores bound. A release lands inside
-	// take(), before Consume yields to this test's own decrement, so +consumers is that exact lag, not slop.
+	// outstanding: appends minus takes; +consumers below is take()'s pre-yield release lag, not slop.
 	var outstanding atomic.Int64
 	var overCapacity atomic.Bool
 	var produced sync.WaitGroup

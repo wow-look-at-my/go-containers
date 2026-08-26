@@ -176,10 +176,8 @@ func TestBlockingBagBoundedProducerConsumer(t *testing.T) {
 	b := NewBlocking[int](WithCapacity(capacity))
 	ctx := t.Context()
 
-	// outstanding is successful adds minus takes -- what Core's semaphores actually bound. A consumer's
-	// free-permit release lands inside take(), before Consume yields the value to this test's own
-	// decrement below, so up to one release per consumer goroutine can be legitimately un-decremented
-	// at any instant; the +consumers slack is that bound, not a fudge factor.
+	// outstanding is successful adds minus takes -- what Core's semaphores bound. A release lands inside
+	// take(), before Consume yields to this test's own decrement, so +consumers is that exact lag, not slop.
 	var outstanding atomic.Int64
 	var overCapacity atomic.Bool
 	var produced sync.WaitGroup

@@ -11,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sizeProbe carries the size assertion. A package-level variable keeps the
-// assertion from a copy of a value that holds atomics.
+// sizeProbe avoids copying a value that holds atomics.
 var sizeProbe shard[int]
 
 // drain takes from the bag until it reports empty.

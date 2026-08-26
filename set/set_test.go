@@ -375,11 +375,7 @@ func TestRemoveMultiple(t *testing.T) {
 	assert.False(t, s.ContainsAny(2, 3))
 }
 
-// ---------- benchmarks ----------
-//
-// These measure one implementation on its own. The paired suite that
-// measures the same operations against a hand-rolled equivalent lives in
-// bench_test.go, under BenchmarkCompare* names.
+// ---------- benchmarks: alone here; bench_test.go's BenchmarkCompare* pairs it against a hand-rolled map ----------
 
 func BenchmarkContains(b *testing.B) {
 	s := New[int](1000)

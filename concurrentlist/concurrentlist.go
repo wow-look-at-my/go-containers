@@ -18,21 +18,15 @@ import (
 )
 
 const (
-	// initialSegmentLen keeps an empty list cheap. A list that stays small
-	// never allocates a second segment.
+	// initialSegmentLen keeps an empty list cheap: small lists never grow a second segment.
 	initialSegmentLen = 32
-	// maxSegmentLen bounds the memory that one taken element can hold. A
-	// segment is released as a whole, so a large segment delays that.
+	// maxSegmentLen bounds a taken element's held memory; a segment releases as one unit.
 	maxSegmentLen = 4096
-	// spinsBeforeYield bounds the wait for a producer that reserved a slot
-	// and did not fill it yet. That wait ends after one store.
+	// spinsBeforeYield bounds the wait on a producer mid-reserve; it ends after one store.
 	spinsBeforeYield = 24
 )
 
-// slot holds one element and the flag that publishes it.
-//
-// The producer writes value and then stores ready. A consumer reads ready and
-// then reads value. That order is what makes the plain value field safe.
+// slot holds value plus ready: producer writes value then ready; consumer reads ready then value.
 type slot[T any] struct {
 	ready atomic.Bool
 	value T
@@ -48,11 +42,7 @@ func (s *slot[T]) waitReady() {
 	}
 }
 
-// segment is one contiguous array of slots, and one link in the chain.
-//
-// head and tail are positions inside this segment, and both only rise. tail can
-// rise above len(slots): a producer that reserves a position past the end
-// leaves it unused and moves to the next segment.
+// segment is a contiguous slot array and chain link; head/tail only rise.
 type segment[T any] struct {
 	slots []slot[T]
 	head  atomic.Uint64
@@ -74,10 +64,8 @@ func (s *segment[T]) filled() uint64 {
 	return n
 }
 
-// List is a lock-free, ordered collection with first-in-first-out takes.
-// The zero value is an empty list ready to use.
-//
-// Every method is safe for concurrent use. The caller never locks anything.
+// List is a lock-free, first-in-first-out collection; every method is safe
+// for concurrent use. The zero value is an empty list ready to use.
 type List[T any] struct {
 	head   atomic.Pointer[segment[T]]
 	tail   atomic.Pointer[segment[T]]
@@ -127,11 +115,7 @@ func (l *List[T]) grow(full *segment[T]) {
 	l.tail.CompareAndSwap(full, next)
 }
 
-// publish fills the reserved slot and makes it visible to takers.
-//
-// The count rises before the ready flag, so a taker that sees the element
-// always sees a count that already includes it. Len can therefore never report
-// a negative number.
+// publish fills the reserved slot; count rises before ready, so Len never goes negative.
 func (l *List[T]) publish(s *slot[T], value T) {
 	s.value = value
 	l.count.Add(1)
@@ -295,10 +279,7 @@ func (l *List[T]) TryPeek() (T, bool) {
 	}
 }
 
-// Len returns the number of elements in the list.
-//
-// The result is a reading, not a lock: another goroutine can change the length
-// before the caller acts on it.
+// Len is a reading, not a lock: another goroutine can change it before the caller acts.
 func (l *List[T]) Len() int {
 	n := l.count.Load()
 	if n < 0 {
@@ -312,11 +293,7 @@ func (l *List[T]) IsEmpty() bool {
 	return l.Len() == 0
 }
 
-// Clear removes elements until the list looks empty.
-//
-// Clear takes the elements one by one, so an append that runs at the same time
-// is never lost. It is not one atomic step: a list that other goroutines still
-// fill can be non-empty when Clear returns.
+// Clear takes elements one by one; not atomic -- others can still be filling it when this returns.
 func (l *List[T]) Clear() {
 	for {
 		if _, ok := l.TryTake(); !ok {
@@ -325,12 +302,9 @@ func (l *List[T]) Clear() {
 	}
 }
 
-// All returns an iterator over the elements, oldest first, and removes none of
-// them.
-//
-// The walk reads the segments as it goes. An element it yields can already be
-// taken by another goroutine, and an element appended during the walk can
-// appear. Use it for a report, never for a decision that must be exact.
+// All iterates the elements, oldest first, removing none. A yielded element
+// can already be taken elsewhere, and a concurrent append can appear -- use
+// it for a report, never an exact decision.
 func (l *List[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		for s := l.head.Load(); s != nil; s = s.next.Load() {

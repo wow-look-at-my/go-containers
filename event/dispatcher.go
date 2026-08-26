@@ -12,10 +12,7 @@ import (
 type dispatcher[CB any] struct {
 	mu        sync.RWMutex
 	callbacks set.Set[weak.Pointer[CB]]
-	// snapshots recycles the buffer Invoke copies the callbacks into. The
-	// buffer exists so the lock is released before any callback runs; keeping
-	// it out of the collector's way costs one allocation per event, not one
-	// per dispatch.
+	// snapshots recycles Invoke's copy buffer, releasing the lock before any callback runs.
 	snapshots sync.Pool
 }
 

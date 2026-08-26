@@ -14,19 +14,13 @@ import (
 	"sync/atomic"
 )
 
-// ErrCompleted is the error a blocked add or take returns after
-// CompleteAdding. A take returns it only after the collection is also empty.
+// ErrCompleted is what a blocked add or take returns after CompleteAdding; a take also needs it empty.
 var ErrCompleted = errors.New("go-containers: the collection is complete for adds")
 
 // Unbounded is the capacity of a collection that never makes an add wait.
 const Unbounded = -1
 
-// Store is the collection under the blocking core. It must be safe for
-// concurrent use, and none of its methods may block.
-//
-// TryTake may report false for an element that another goroutine is in the
-// middle of an add for. The core holds one permit per element that it accepted,
-// so it retries until the element appears.
+// Store is concurrent-safe and non-blocking; TryTake may report false mid-add, so the core retries.
 type Store[T any] interface {
 	TryAdd(v T) bool
 	TryTake() (T, bool)
@@ -36,16 +30,13 @@ type Store[T any] interface {
 // Core adds bounding, blocking and completion to a Store.
 type Core[T any] struct {
 	store Store[T]
-	// items holds one permit per element that a taker can remove.
+	// items holds one permit per removable element.
 	items sema
-	// free holds one permit per empty slot. A collection with no bound
-	// leaves it unused.
+	// free holds one permit per empty slot; unused when unbounded.
 	free     sema
 	capacity int
 
-	// completeMu keeps CompleteAdding and the adds apart. An add holds it
-	// for reading, so several adds still run at the same time. After
-	// CompleteAdding returns, no add can reach the store.
+	// completeMu: adds hold it for reading; CompleteAdding takes it for writing.
 	completeMu sync.RWMutex
 	completed  atomic.Bool
 }
@@ -86,11 +77,8 @@ func (c *Core[T]) IsCompleted() bool {
 	return c.completed.Load() && c.items.available() == 0
 }
 
-// CompleteAdding marks the collection complete for adds and wakes every
-// blocked goroutine. It is safe to call more than once.
-//
-// After it returns, no further element enters the collection. An add that was
-// already in flight finishes first.
+// CompleteAdding marks the collection complete and wakes every blocked
+// goroutine; safe to call more than once. An add already in flight finishes.
 func (c *Core[T]) CompleteAdding() {
 	c.completeMu.Lock()
 	already := c.completed.Swap(true)
@@ -151,9 +139,8 @@ func (c *Core[T]) TryAdd(value T) bool {
 	return c.add(value) == nil
 }
 
-// take removes one element. The caller owns an item permit, so an element is
-// there. Another goroutine can still be in the middle of the add that
-// published it, and the retry waits for that one store.
+// take removes one element the caller's permit guarantees; it retries while
+// another goroutine is still mid-add on it.
 func (c *Core[T]) take() T {
 	for {
 		if v, ok := c.store.TryTake(); ok {

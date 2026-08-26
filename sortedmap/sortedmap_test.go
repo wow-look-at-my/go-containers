@@ -435,11 +435,7 @@ func TestRandomInsertDelete(t *testing.T) {
 	}
 }
 
-// ---------- benchmarks ----------
-//
-// These measure one implementation on its own. The paired suite that
-// measures the same operations against a hand-rolled equivalent lives in
-// bench_test.go, under BenchmarkCompare* names.
+// ---------- benchmarks: alone here; bench_test.go's BenchmarkCompare* pairs it against hand-rolled ----------
 
 func BenchmarkPut(b *testing.B) {
 	m := New[int, int]()

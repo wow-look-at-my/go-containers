@@ -152,8 +152,7 @@ func TestConcurrentChurn(t *testing.T) {
 		}()
 	}
 
-	// The monitor waits on its own group. It must not join wg, because wg is
-	// what tells the test when to stop it.
+	// The monitor uses its own group; wg is what tells the test to stop it.
 	var monitor sync.WaitGroup
 	monitor.Add(1)
 	go func() {

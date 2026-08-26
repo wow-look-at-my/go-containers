@@ -17,25 +17,19 @@ import (
 	"unsafe"
 )
 
-// Shard-count bounds. The floor keeps a small machine from serializing on one
-// lock. The ceiling keeps Len and iteration, which visit every shard, cheap.
+// Shard-count bounds: the floor stops a small machine serializing on one lock; the ceiling keeps Len cheap.
 const (
 	minShards = 8
 	maxShards = 1024
 )
 
-// errZeroMap names the fix, because the alternative is a nil-map panic from
-// inside an unexported method.
+// errZeroMap names the fix instead of panicking with a bare nil-map trace.
 const errZeroMap = "concurrentmap: the zero Map is not usable; call New"
 
-// shardBytes is the size of one shard. Two shards on one cache line put two
-// unrelated locks in one coherence unit, and the writers then fight for it.
-// 128 covers a 64-byte line plus the adjacent-line prefetch on amd64.
+// shardBytes covers a 64-byte cache line plus the adjacent-line prefetch on amd64, so two shards never share one.
 const shardBytes = 128
 
-// padBytes fills the rest of the shard. The two sizes below are the sizes of
-// the real fields: a map value is one pointer whatever its key and element
-// types are.
+// padBytes fills the rest: a map value is one pointer whatever K/V are.
 const padBytes = shardBytes - unsafe.Sizeof(sync.RWMutex{}) - unsafe.Sizeof(map[int]int(nil))
 
 // shard is one independently locked partition of a [Map]. Each shard is its
@@ -52,21 +46,14 @@ type pair[K comparable, V any] struct {
 	value V
 }
 
-// Map is a map of keys of type K to values of type V, safe for concurrent use
-// by multiple goroutines. Keys are spread across a fixed number of shards, and
-// each shard carries its own lock.
-//
-// The zero value is NOT usable. Create a Map with [New]. Every method panics
-// on the zero value.
-//
-// A Map must not be copied after first use.
+// Map is safe for concurrent use: keys spread across shards, each its own
+// lock. Zero value NOT usable (every method panics) -- create with [New], and
+// never copy a Map after first use.
 type Map[K comparable, V any] struct {
 	shards []*shard[K, V]
 	seed   maphash.Seed
 	mask   uint64
-	// snapshots recycles the buffer that iteration copies one shard into.
-	// The buffer exists so no caller code runs under a lock. The pool keeps
-	// that cost at one allocation per concurrent iterator, not one per shard.
+	// snapshots recycles iteration's per-shard copy buffer, so no caller code runs under a lock.
 	snapshots sync.Pool
 }
 
@@ -79,9 +66,7 @@ type config struct {
 // Option configures a [Map] at construction. Pass options to [New].
 type Option func(*config)
 
-// WithConcurrency sets the number of shards the Map aims for. The Map rounds
-// the value up to a power of two, and clamps it to the range [8, 1024]. A
-// value below 1 selects the floor.
+// WithConcurrency sets the shard count the Map aims for, rounded up to a power of two and clamped to [8, 1024].
 func WithConcurrency(n int) Option {
 	return func(c *config) { c.concurrency = n }
 }
@@ -201,19 +186,9 @@ func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	return value, false
 }
 
-// LoadOrCompute returns the existing value for key when the key is present.
-// Otherwise it calls fn, stores the result, and returns it. The loaded result
-// is true when the Map already held the key.
-//
-// fn runs at most once per call, and it runs while the shard lock is held. So
-// exactly one goroutine computes the value for an absent key, and the whole
-// operation is atomic. .NET's GetOrAdd runs its delegate outside the lock,
-// which lets two racing callers both run it and lets a third caller observe
-// the key between the two steps.
-//
-// The lock forces two rules on fn. fn must not call back into the same Map,
-// because a call for the same shard deadlocks. fn must not block, because it
-// stops every other operation on the shard.
+// LoadOrCompute loads key, or calls fn once under the shard lock to compute
+// and store it -- unlike .NET's GetOrAdd, which runs its delegate unlocked.
+// fn must not call back into this Map (deadlock) or block (stalls the shard).
 func (m *Map[K, V]) LoadOrCompute(key K, fn func(K) V) (actual V, loaded bool) {
 	s := m.shard(key)
 
@@ -234,12 +209,8 @@ func (m *Map[K, V]) LoadOrCompute(key K, fn func(K) V) (actual V, loaded bool) {
 	return actual, false
 }
 
-// AddOrUpdate stores add when key is absent. Otherwise it calls update with
-// the key and the old value, and stores the result. It returns the value the
-// Map holds after the call.
-//
-// update runs while the shard lock is held, so the read and the write are one
-// atomic step. The rules of [Map.LoadOrCompute] apply to update.
+// AddOrUpdate stores add when key is absent, else stores update(key, old) and
+// returns the result. update runs under the shard lock -- [Map.LoadOrCompute]'s rules apply.
 func (m *Map[K, V]) AddOrUpdate(key K, add V, update func(key K, old V) V) V {
 	s := m.shard(key)
 	s.mu.Lock()
@@ -253,13 +224,8 @@ func (m *Map[K, V]) AddOrUpdate(key K, add V, update func(key K, old V) V) V {
 	return add
 }
 
-// Compute is the general read-modify-write operation. It calls fn with the
-// current value and its presence. When fn returns remove, Compute deletes the
-// key. Otherwise Compute stores newValue. Compute returns the value the Map
-// holds after the call, and whether the key is present.
-//
-// fn runs exactly once, and it runs while the shard lock is held. The rules of
-// [Map.LoadOrCompute] apply to fn.
+// Compute calls fn once, under the shard lock, with the current value and its
+// presence; remove deletes the key, else newValue is stored. [Map.LoadOrCompute]'s rules apply to fn.
 func (m *Map[K, V]) Compute(key K, fn func(old V, loaded bool) (newValue V, remove bool)) (V, bool) {
 	s := m.shard(key)
 	s.mu.Lock()
@@ -299,9 +265,7 @@ func (m *Map[K, V]) LoadAndDelete(key K) (V, bool) {
 
 // ---------- whole-map operations ----------
 
-// Len returns the number of keys in the Map. Len locks one shard at a time,
-// so a concurrent writer can change a shard Len already counted. The result is
-// exact only while no other goroutine writes.
+// Len locks one shard at a time; exact only while nothing else writes.
 func (m *Map[K, V]) Len() int {
 	m.mustInit()
 	n := 0
@@ -361,13 +325,8 @@ func (m *Map[K, V]) returnSnapshot(buf *[]pair[K, V]) {
 	m.snapshots.Put(buf)
 }
 
-// All returns an iterator over the key-value pairs of the Map.
-//
-// All copies ONE shard under its read lock, releases the lock, then yields
-// that shard's pairs. So yield never runs under a lock, and the copy stays as
-// small as one shard. The consequence: All gives a shard-at-a-time view, not
-// one point in time. A pair a writer adds to a shard All has not reached yet
-// can appear in the walk.
+// All copies one shard under its read lock, releases it, then yields that
+// shard's pairs -- a shard-at-a-time view, not one point in time.
 func (m *Map[K, V]) All() iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
 		m.mustInit()
@@ -426,12 +385,8 @@ func (m *Map[K, V]) String() string {
 
 // ---------- operations that need a comparable value ----------
 
-// CompareAndSwap stores new under key when the key is present and its value
-// equals old. It reports whether it stored the value. The comparison and the
-// store are one atomic step.
-//
-// The function is not a method, because a method cannot add the comparable
-// constraint to V.
+// CompareAndSwap stores new for key iff present and equal to old, atomically.
+// A function, not a method: a method cannot add V's comparable constraint.
 func CompareAndSwap[K comparable, V comparable](m *Map[K, V], key K, old, new V) bool {
 	s := m.shard(key)
 	s.mu.Lock()
@@ -444,12 +399,8 @@ func CompareAndSwap[K comparable, V comparable](m *Map[K, V], key K, old, new V)
 	return true
 }
 
-// CompareAndDelete removes key when the key is present and its value equals
-// old. It reports whether it removed the key. The comparison and the delete
-// are one atomic step.
-//
-// The function is not a method, because a method cannot add the comparable
-// constraint to V.
+// CompareAndDelete removes key iff present and equal to old, atomically. A
+// function, not a method: a method cannot add V's comparable constraint.
 func CompareAndDelete[K comparable, V comparable](m *Map[K, V], key K, old V) bool {
 	s := m.shard(key)
 	s.mu.Lock()

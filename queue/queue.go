@@ -4,13 +4,11 @@ package queue
 
 import "iter"
 
-// minCapacity is the smallest backing array Queue allocates. A queue that
-// stays small never resizes twice.
+// minCapacity avoids resizing twice for a queue that stays small.
 const minCapacity = 8
 
-// Queue is a first-in-first-out collection of elements of type T.
-// The zero value is an empty queue ready to use. A Queue is not safe for
-// concurrent use; see concurrentqueue.Queue for that.
+// Queue is a first-in-first-out collection, not safe for concurrent use.
+// The zero value is ready to use; see concurrentqueue.Queue for concurrency.
 type Queue[T any] struct {
 	buf   []T
 	head  int

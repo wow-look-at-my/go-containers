@@ -1,6 +1,6 @@
 # The concurrent collections
 
-Four collections that many goroutines use at the same time, and a blocking
+Five collections that many goroutines use at the same time, and a blocking
 variant of three of them. All the synchronization is inside the type. No caller
 of this library ever holds a lock, and no method returns a lock, a cursor, or
 anything else that the caller must release.
@@ -10,14 +10,37 @@ anything else that the caller must release.
 | type | order | mechanism |
 | --- | --- | --- |
 | `concurrentmap.Map[K, V]` | none | sharded maps, one `sync.RWMutex` per shard |
+| `concurrentset.Set[T]` | none | `concurrentmap.Map[T, struct{}]` behind a set API |
 | `concurrentlist.List[T]` | first in, first out | lock-free chain of contiguous segments |
 | `concurrentstack.Stack[T]` | last in, first out | lock-free Treiber chain |
 | `concurrentbag.Bag[T]` | none | sharded lock-free Treiber chains, with stealing |
+
+## concurrentset: a set is a map that only needs its keys
+
+`concurrentset.Set[T]` does not shard or lock anything itself -- every method
+is one call into an internal `concurrentmap.Map[T, struct{}]`. That map has
+already solved sharding and locking correctly, so a second implementation
+would only be a second place for the same bugs to hide. `Add` is `TryAdd`,
+`Remove` is `Delete`, `Contains`, `Len`, `IsEmpty`, `Clear`, and the `All`
+iterator all forward directly. The type exists for the API, not the
+mechanism: a caller who wants set semantics (unique elements, no value to
+carry) should not have to spell out `Map[T, struct{}]` and remember that the
+`struct{}` means nothing.
 
 `concurrentmap` is the odd one: it uses locks, and it says so. A map needs a
 hash table, and a lock-free hash table in Go costs an interface box or an
 `unsafe.Pointer` per entry. The sharding is what removes the contention: two
 goroutines that touch different shards never wait for each other.
+
+`concurrentset`'s own bench_test.go carries a `DirectSet`: the same sharding
+strategy, hand-coded directly against `T` with one `set.Set[T]` per shard
+instead of routing through `concurrentmap.Map`. It exists to check the
+wrapper's cost, and `Add` shows the wrapper WINS: `concurrentmap.Map.TryAdd`
+checks presence before writing, while `set.Set.Add` always writes and
+compares lengths after to learn what it did. A hot key set that is mostly
+already present pays for a write `TryAdd` skips -- the wrapper is faster
+because its semantics are cheaper, not because sharding differs. `Contains`
+reads have no such asymmetry and land within noise of each other.
 
 ## concurrentlist: the segment chain
 

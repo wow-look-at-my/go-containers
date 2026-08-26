@@ -8,16 +8,7 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs the same workload three ways: on SortedMap, and on
-// the two things a caller writes instead.
-//
-//   - "mapsort" is a plain map[K]V, sorted when the caller needs order. It wins
-//     every point lookup and loses whenever order is asked for.
-//   - "slice" is a sorted []entry kept in order with a binary search and an
-//     insert. It reads fast and pays for every write by moving the tail.
-//
-// SortedMap is a left-leaning red-black tree, so it sits between them: O(log n)
-// for both, and no per-iteration sort. The numbers say where that trade pays.
+// Every benchmark runs SortedMap against a sorted-on-demand map and a sorted slice.
 
 // benchSizes are the element counts every benchmark sweeps.
 var benchSizes = []int{100, 10000}
@@ -70,8 +61,7 @@ func (s *sortedSlice) del(key int) bool {
 	return true
 }
 
-// keys returns n pseudo-random distinct keys. A benchmark that inserts them in
-// order would measure the tree's best case and the slice's worst one.
+// keys returns n distinct pseudo-random keys, avoiding the tree's best/slice's worst in-order case.
 func keys(n int) []int {
 	r := rand.New(rand.NewPCG(1, 2))
 	out := r.Perm(n)

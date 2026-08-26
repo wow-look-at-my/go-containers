@@ -7,13 +7,7 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs one workload on Stack[int] and on what a caller
-// writes instead: a sync.Mutex around a slice. The pair shares its workload, so
-// the difference between the two lines is the cost of the type.
-//
-// A benchmark that both adds and takes runs a buffered channel too. A channel
-// is first-in-first-out, so it is not a stack and it never appears in an
-// order-sensitive benchmark. It is here for throughput comparison only.
+// Every benchmark runs Stack[int] against a mutex-guarded slice, plus a channel for mixed throughput only.
 
 // benchParallelism sweeps the goroutine count. Each value multiplies GOMAXPROCS.
 var benchParallelism = []int{1, 4, 16}
@@ -21,13 +15,11 @@ var benchParallelism = []int{1, 4, 16}
 const (
 	// benchBatch is the size of one PushRange or TryPopRange.
 	benchBatch = 64
-	// benchDrain bounds a push-only benchmark. One drain per benchDrain pushes
-	// keeps memory flat and costs under a thousandth of an operation.
+	// benchDrain: one drain per this many pushes keeps memory flat, cheaply.
 	benchDrain = 4096
 	// benchFill is the prefill of a pop-only benchmark.
 	benchFill = 1 << 16
-	// benchChanCap holds every value in flight. Each goroutine sends one value
-	// before it receives one, so the send never blocks.
+	// benchChanCap holds every in-flight value, so a send never blocks.
 	benchChanCap = 1 << 16
 )
 
@@ -155,8 +147,7 @@ func BenchmarkCompareParallelPush(b *testing.B) {
 }
 
 func BenchmarkCompareParallelPop(b *testing.B) {
-	// A goroutine that finds the stack empty refills it. The refill is one
-	// PushRange per benchBatch pops, so the measurement stays a pop.
+	// An empty stack refills via one PushRange per benchBatch pops.
 	refill := make([]int, benchBatch)
 
 	eachParallelism(b,
@@ -243,8 +234,7 @@ func BenchmarkCompareParallelPushPop(b *testing.B) {
 }
 
 func BenchmarkCompareParallelBulk(b *testing.B) {
-	// One iteration moves benchBatch values in and back out again, so the
-	// stack stays small whatever b.N is.
+	// One iteration moves benchBatch values in and back out, keeping the stack small.
 	values := make([]int, benchBatch)
 
 	eachParallelism(b,

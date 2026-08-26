@@ -5,13 +5,8 @@ import (
 	"sync"
 )
 
-// waiter is one goroutine parked on a semaphore. ready closes when the waiter
-// receives a permit, or when the semaphore completes.
-//
-// Each park makes a fresh channel, and a pool must not recycle them.
-// testing/synctest binds a channel to the bubble that created it, and it stops
-// the program when another bubble touches that channel. A shared pool would
-// therefore break the synctest tests of any caller of this library.
+// waiter is one parked goroutine; ready closes on grant or complete. Each
+// park allocates fresh -- pooling would break testing/synctest.
 type waiter struct {
 	ready   chan struct{}
 	granted bool
@@ -19,11 +14,8 @@ type waiter struct {
 	next    *waiter
 }
 
-// sema is a counting semaphore that a context can cancel.
-//
-// A channel alone cannot do this job: the permit count of an unbounded
-// collection has no ceiling, so there is no buffer size to give it. The waiters
-// form a queue, so a permit goes to the goroutine that waited longest.
+// sema is a cancellable counting semaphore: an unbounded permit count has no
+// buffer size a channel could use, and waiters queue FIFO.
 type sema struct {
 	mu        sync.Mutex
 	permits   int
@@ -112,8 +104,7 @@ func (s *sema) acquire(ctx context.Context) bool {
 	s.enqueue(w)
 	s.mu.Unlock()
 
-	// A context that can never end has a nil channel. One receive costs much
-	// less than a select, and this is the common case.
+	// A never-ending context gives a nil channel; a plain receive is cheaper than a select.
 	done := ctx.Done()
 	if done == nil {
 		<-w.ready
@@ -130,8 +121,7 @@ func (s *sema) acquire(ctx context.Context) bool {
 		if removed {
 			return false
 		}
-		// A releaser already took this waiter out of the queue, so it
-		// grants the permit. Wait for that to land.
+		// A releaser already dequeued this waiter and is granting it.
 		<-w.ready
 		return w.granted
 	}
@@ -146,8 +136,7 @@ func (s *sema) complete() {
 		return
 	}
 	s.completed = true
-	// Unlink every waiter under the lock. A waiter that cancels at the same
-	// moment reads the same links from remove, which holds the same lock.
+	// Unlink every waiter under the lock, same as a cancelling remove.
 	var woken []*waiter
 	for w := s.head; w != nil; {
 		next := w.next

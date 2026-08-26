@@ -5,14 +5,7 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs twice: once on Set[int], once on the plain
-// map[int]struct{} the caller would otherwise write by hand. The pair shares
-// its input and its work, so the difference between the two lines is the cost
-// of the type, not of the workload.
-//
-// The hand-rolled side spells out what Set does internally. That is the point:
-// a set operation the library exposes as one call is a loop at the call site,
-// and both versions of the loop are here to be compared.
+// Every benchmark runs Set[int] against a hand-rolled map[int]struct{}.
 
 // benchSizes are the element counts every size-sensitive benchmark sweeps.
 var benchSizes = []int{100, 10000}

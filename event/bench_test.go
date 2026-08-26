@@ -9,29 +9,9 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs the same workload twice: once on Event[T], once on
-// the hand-rolled dispatcher below.
-//
-// The two are not the same thing, and the numbers should be read with that in
-// mind. Event buys two guarantees the hand-rolled slice does not have, and the
-// gap between the two lines is what they cost:
-//
-//   - Weak references. Event holds each callback through a weak.Pointer, so a
-//     subscriber that goes away does not stay alive through the event, and
-//     every Invoke pays a Value() call per callback to learn whether its
-//     referent is still there. The slice holds its callbacks strongly and keeps
-//     every subscriber alive until someone remembers to unsubscribe.
-//   - Re-entrancy. Event copies its callbacks under the read lock and releases
-//     the lock before calling any of them, so a callback may subscribe or
-//     unsubscribe. The hand-rolled side dispatches while still holding the
-//     lock, and a callback that touches the dispatcher there deadlocks. The
-//     copy costs no allocation: one subscriber goes to the stack, and more
-//     ride a pooled buffer.
+// Every benchmark runs Event[T] against the hand-rolled dispatcher below.
 
-// Sinks keep a result alive so the compiler cannot delete the work.
-// A parallel benchmark must use sinkShared, never the plain sinks. Several
-// goroutines write the sink there, and a plain variable makes that a data race
-// that the detector fails the run over.
+// sinkShared is the parallel sink; a plain one racing goroutines fails under -race.
 var sinkShared atomic.Int64
 
 var (
@@ -93,10 +73,7 @@ func newCallbacks(n int) []func(intArgs) error {
 	cbs := make([]func(intArgs) error, n)
 	for i := range cbs {
 		cbs[i] = func(a intArgs) error {
-			// A dispatch benchmark can run this callback on several
-			// goroutines at once, so the sink has to be atomic. Both
-			// implementations share these callbacks, so the cost is equal
-			// on both sides of the comparison.
+			// Shared, so the atomic sink's cost is equal on both sides.
 			sinkShared.Add(int64(a.N))
 			return nil
 		}
@@ -104,9 +81,7 @@ func newCallbacks(n int) []func(intArgs) error {
 	return cbs
 }
 
-// subscriberCounts are the callback counts the dispatch benchmarks sweep.
-// The middle count is not decoration: dispatch cost per subscriber is what
-// the sweep is measuring, and two points cannot show a curve.
+// subscriberCounts sweep per-subscriber dispatch cost; two points show no curve.
 var subscriberCounts = []int{1, 10, 100}
 
 // eachCount runs one pair of implementations at every subscriber count.

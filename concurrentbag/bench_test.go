@@ -8,40 +8,26 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs the same workload three times: once on Bag, once
-// on a sync.Mutex around a slice, and once on a buffered channel. Those two
-// are what a Go caller writes when the standard library offers no bag.
-//
-// A container that only grows would exhaust memory over millions of
-// iterations. The add benchmarks therefore work against an arena that one
-// goroutine replaces every arenaOps operations. Every implementation pays the
-// same atomic load per operation, and the replacement drops the whole
-// container at once, so no implementation pays for a drain it did not do.
+// Every benchmark runs Bag against a mutex-guarded slice and a buffered
+// channel -- what a Go caller reaches for without a bag. Add benchmarks run
+// against an arena one goroutine replaces every arenaOps ops, so a growing
+// container never exhausts memory and no implementation pays for a drain.
 
 const (
-	// arenaOps is the number of operations one goroutine performs before it
-	// replaces the arena.
+	// arenaOps is how many ops one goroutine runs before replacing the arena.
 	arenaOps = 4096
-
-	// bulkSize is the batch length the AddRange benchmark adds per operation.
+	// bulkSize is the AddRange benchmark's per-operation batch length.
 	bulkSize = 64
-
-	// refillBatch is the number of values a take loop puts back when it finds
-	// the container empty. A larger batch keeps the measured takes on a
-	// populated container instead of an empty one.
+	// refillBatch keeps a take loop's container populated instead of empty.
 	refillBatch = 1024
-
-	// steady is the number of values the mixed benchmark starts with, so a
-	// take there reads a populated container.
+	// steady is what the mixed benchmark starts with, so takes hit a populated container.
 	steady = 4096
 )
 
 // parallelisms is the b.SetParallelism sweep, in multiples of GOMAXPROCS.
 var parallelisms = []int{1, 4, 16}
 
-// sink keeps every measured result alive, so the compiler cannot delete the
-// work. A benchmark goroutine accumulates locally and adds once at the end,
-// because a shared plain variable would be a data race.
+// sink keeps every result alive so the compiler cannot delete the work.
 var sink atomic.Int64
 
 // newBag builds the bag under test. New takes options, so it does not match
@@ -148,8 +134,7 @@ func (c *chanBag) length() int {
 // impl names one implementation of a workload.
 type impl struct {
 	name string
-	// run receives the number of goroutines b.RunParallel starts, so a bounded
-	// implementation can size its buffer for one arena generation.
+	// run gets the goroutine count, so a bounded impl can size its buffer.
 	run func(b *testing.B, goroutines int)
 }
 

@@ -6,41 +6,23 @@ import (
 	"weak"
 )
 
-// EventArgs is a marker interface that constrains the argument type of an
-// [Event] or [ResultEvent] to a struct embedding [Args]. This prevents using
-// primitive types as event arguments, ensuring callers can always add fields
-// later without breaking the signature.
+// EventArgs constrains [Event]/[ResultEvent] to a struct embedding [Args].
 type EventArgs interface {
 	eventArgs()
 }
 
-// Args is an embeddable base type that satisfies [EventArgs]. Embed it in
-// your argument struct:
-//
-//	type ClickArgs struct {
-//		event.Args
-//		X, Y int
-//	}
+// Args satisfies [EventArgs]; embed it in an argument struct as event.Args.
 type Args struct{}
 
 func (Args) eventArgs() {}
 
-// Event is a thread-safe event dispatcher parameterized by a struct argument
-// type T. T must embed [Args] to satisfy the [EventArgs] constraint.
-// Registered callbacks are held as weak references, so callers must retain
-// their own *func(T) error values to keep them alive.
-// The zero value is ready to use.
-//
-// Callbacks produce only an error. When subscribers must also return a
-// value, use [ResultEvent].
+// Event dispatches to weak-ref callbacks over T; caller retains its *func(T) error. See [ResultEvent] for a return value.
 type Event[T EventArgs] struct {
 	d dispatcher[func(T) error]
 }
 
-// Subscribe registers a callback with the event. The event stores a weak
-// reference to cb; the caller must keep cb reachable to prevent garbage
-// collection. Returns true if the callback was newly added, or false if
-// it was already registered.
+// Subscribe holds a weak reference to cb, so the caller must keep it
+// reachable; reports whether it was newly added.
 func (e *Event[T]) Subscribe(cb *func(T) error) bool {
 	return e.d.subscribe(cb)
 }
@@ -92,17 +74,14 @@ func (e *Event[T]) Invoke(arg T) error {
 	return errors.Join(errs...)
 }
 
-// ResultEvent is [Event] whose callbacks also return a value of type R.
-// Invoke collects every live callback's value, in snapshot order, and still
-// joins errors the same way [Event.Invoke] does.
+// ResultEvent is [Event] whose callbacks also return R; Invoke collects every
+// live value in snapshot order and joins errors the same way.
 type ResultEvent[T EventArgs, R any] struct {
 	d dispatcher[func(T) (R, error)]
 }
 
-// Subscribe registers a callback with the event. The event stores a weak
-// reference to cb; the caller must keep cb reachable to prevent garbage
-// collection. Returns true if the callback was newly added, or false if
-// it was already registered.
+// Subscribe holds a weak reference to cb, so the caller must keep it
+// reachable; reports whether it was newly added.
 func (e *ResultEvent[T, R]) Subscribe(cb *func(T) (R, error)) bool {
 	return e.d.subscribe(cb)
 }

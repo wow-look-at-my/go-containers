@@ -258,6 +258,12 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 	b := NewBlocking[int](WithCapacity(capacity))
 	ctx := t.Context()
 
+	// outstanding is successful appends minus successful takes: the exact
+	// quantity Core's free/items semaphores bound to capacity. List.Len()
+	// cannot stand in for it -- the counter rises before a slot's ready flag
+	// publishes, so a concurrent Len() can read high with no ceiling
+	// violation underneath it.
+	var outstanding atomic.Int64
 	var overCapacity atomic.Bool
 	var produced sync.WaitGroup
 	for p := range producers {
@@ -266,7 +272,7 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 				if err := b.Append(ctx, p*perProducer+i); err != nil {
 					return
 				}
-				if b.Len() > capacity {
+				if outstanding.Add(1) > capacity {
 					overCapacity.Store(true)
 				}
 			}
@@ -281,6 +287,7 @@ func TestBlockingBoundedProducerConsumer(t *testing.T) {
 			for v := range b.Consume(ctx) {
 				assert.False(t, seen[v].Swap(true))
 
+				outstanding.Add(-1)
 				taken.Add(1)
 			}
 		})

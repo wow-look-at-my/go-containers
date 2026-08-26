@@ -176,6 +176,12 @@ func TestBlockingBagBoundedProducerConsumer(t *testing.T) {
 	b := NewBlocking[int](WithCapacity(capacity))
 	ctx := t.Context()
 
+	// outstanding is successful adds minus successful takes: the exact quantity
+	// Core's free/items semaphores bound to capacity. Bag.Len() cannot stand in
+	// for it -- a shard's counter rises before its Treiber push lands, so a
+	// concurrent Len() can read high by however many adds are mid-push on OTHER
+	// shards, with no ceiling violation underneath it.
+	var outstanding atomic.Int64
 	var overCapacity atomic.Bool
 	var produced sync.WaitGroup
 	for p := range producers {
@@ -184,7 +190,7 @@ func TestBlockingBagBoundedProducerConsumer(t *testing.T) {
 				if err := b.Add(ctx, p*perProducer+i); err != nil {
 					return
 				}
-				if b.Len() > capacity {
+				if outstanding.Add(1) > capacity {
 					overCapacity.Store(true)
 				}
 			}
@@ -198,6 +204,7 @@ func TestBlockingBagBoundedProducerConsumer(t *testing.T) {
 		consumed.Go(func() {
 			for v := range b.Consume(ctx) {
 				assert.False(t, seen[v].Swap(true), "value %d came out twice", v)
+				outstanding.Add(-1)
 				taken.Add(1)
 			}
 		})

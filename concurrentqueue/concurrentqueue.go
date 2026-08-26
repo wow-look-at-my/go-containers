@@ -9,11 +9,9 @@ import (
 	"github.com/wow-look-at-my/go-containers/concurrentlist"
 )
 
-// Queue is a first-in-first-out collection that many goroutines can use at
-// the same time. It is concurrentlist.List under queue vocabulary: a FIFO
-// list and a concurrent queue are the same lock-free chain-of-segments
-// structure, and a second implementation would only be a second set of
-// concurrency bugs to find. The zero value is an empty queue ready to use.
+// Queue is a first-in-first-out collection safe for concurrent use: it is
+// concurrentlist.List under queue vocabulary, not a second implementation.
+// The zero value is ready to use.
 type Queue[T any] struct {
 	list concurrentlist.List[T]
 }
@@ -47,17 +45,13 @@ func (q *Queue[T]) TryDequeueRange(buf []T) int {
 	return q.list.TryTakeRange(buf)
 }
 
-// TryPeek returns the oldest value and leaves it in the queue. It reports
-// false when the queue is empty. Another goroutine can dequeue that value
-// before the caller reads the result.
+// TryPeek returns the oldest value and leaves it in the queue, or false when
+// the queue is empty. Another goroutine can dequeue it before the caller reads it.
 func (q *Queue[T]) TryPeek() (T, bool) {
 	return q.list.TryPeek()
 }
 
-// Len returns the number of values in the queue.
-//
-// The result is a snapshot. Another goroutine can enqueue or dequeue before
-// the caller reads it.
+// Len returns the number of values in the queue. It is a snapshot.
 func (q *Queue[T]) Len() int {
 	return q.list.Len()
 }
@@ -74,9 +68,8 @@ func (q *Queue[T]) Clear() {
 	q.list.Clear()
 }
 
-// All returns an iterator over the values in the queue, oldest first, and
-// dequeues none of them. The result is a best-effort snapshot: use it for a
-// report, never for a decision that must be exact.
+// All iterates the values oldest first, taking none. It is a best-effort
+// snapshot: use it for a report, never for a decision that must be exact.
 func (q *Queue[T]) All() iter.Seq[T] {
 	return q.list.All()
 }

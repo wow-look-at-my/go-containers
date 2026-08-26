@@ -17,16 +17,11 @@ import (
 )
 
 const (
-	// cacheLine is the padding unit that keeps two shards apart. 64 bytes is
-	// the line size on amd64 and on arm64.
+	// cacheLine is the amd64/arm64 line size, and the padding unit between shards.
 	cacheLine = 64
-
-	// shardsPerProc scales the shard count above GOMAXPROCS, so two goroutines
-	// that pick at random rarely land on one shard.
+	// shardsPerProc scales shards above GOMAXPROCS, so two random picks rarely collide.
 	shardsPerProc = 4
-
-	// minShards is the floor on the shard count. A machine with few cores can
-	// still run many goroutines, and two shards do not spread them.
+	// minShards is the floor: few cores can still run many goroutines.
 	minShards = 8
 )
 
@@ -37,9 +32,7 @@ type node[T any] struct {
 	next  *node[T]
 }
 
-// shard is a Treiber stack plus its own length counter. The padding gives each
-// shard its own cache line, so a counter never shares a line with the next
-// shard's counter. The test asserts the size.
+// shard is a Treiber stack plus a length counter, padded to its own cache line.
 type shard[T any] struct {
 	top atomic.Pointer[node[T]]
 	n   atomic.Int64
@@ -50,8 +43,7 @@ type shard[T any] struct {
 // compare-and-swap per attempt. head is the new top and tail is the far end.
 // The caller must own the whole chain: no other goroutine may reach it yet.
 func (s *shard[T]) pushChain(head, tail *node[T], count int64) {
-	// The counter rises before the chain is visible. A take can only follow a
-	// successful CAS, so the counter never drops below the true length.
+	// The counter rises before the chain is visible, so it never undercounts.
 	s.n.Add(count)
 	for {
 		top := s.top.Load()
@@ -70,10 +62,7 @@ func (s *shard[T]) pop() (T, bool) {
 			var zero T
 			return zero, false
 		}
-		// ABA cannot happen here. The bag never recycles a node, and this
-		// goroutine holds a live reference to top, so the collector cannot
-		// give that address to a new node while the CAS runs. A free list or
-		// a sync.Pool of nodes breaks this. Never add one.
+		// No ABA: nodes are never recycled, so this live reference pins top's address.
 		next := top.next
 		if s.top.CompareAndSwap(top, next) {
 			s.n.Add(-1)
@@ -82,15 +71,10 @@ func (s *shard[T]) pop() (T, bool) {
 	}
 }
 
-// Bag is a thread-safe unordered collection of values of type T. It keeps
-// duplicates. The zero value is NOT usable: create a bag with [New].
-//
-// Every method is safe for concurrent use. No method blocks and no method
-// takes a lock.
+// Bag keeps duplicates; no method blocks. Zero value not usable -- use [New].
 type Bag[T any] struct {
 	shards []shard[T]
-	// mask selects a shard from a random word. len(shards) is a power of two,
-	// so mask is len(shards)-1.
+	// mask picks a shard from a random word; len(shards)-1, a power of two.
 	mask uint64
 }
 
@@ -102,9 +86,7 @@ type config struct {
 // Option configures a bag at construction. See [WithConcurrency].
 type Option func(*config)
 
-// WithConcurrency sets the number of goroutines the bag expects. The bag uses
-// this number in place of GOMAXPROCS to size its shards. A value below one has
-// no effect.
+// WithConcurrency sizes shards from this instead of GOMAXPROCS. Below one has no effect.
 func WithConcurrency(n int) Option {
 	return func(c *config) {
 		if n > 0 {
@@ -140,9 +122,8 @@ func (b *Bag[T]) Add(value T) {
 	b.shards[b.pick()].pushChain(n, n, 1)
 }
 
-// TryAdd puts value into the bag and reports true. The bag is unbounded, so an
-// add never fails. The method exists for a caller that programs against a
-// try-add store contract.
+// TryAdd puts value in and reports true; a bag is unbounded and never fails.
+// Exists for a caller coded against a try-add store contract.
 func (b *Bag[T]) TryAdd(value T) bool {
 	b.Add(value)
 	return true
@@ -154,9 +135,7 @@ func (b *Bag[T]) AddRange(values ...T) {
 	if len(values) == 0 {
 		return
 	}
-	// One allocation holds the whole range. The cost is that the last node of
-	// a range keeps the memory of the whole range, until a take removes that
-	// one too.
+	// One allocation for the whole range; its last node then keeps it all alive.
 	nodes := make([]node[T], len(values))
 	for i, v := range values {
 		nodes[i].value = v
@@ -220,9 +199,8 @@ func (b *Bag[T]) TryPeek() (T, bool) {
 	return zero, false
 }
 
-// Len returns the number of values in the bag. The count is exact when no
-// other goroutine touches the bag. Under concurrent use it can count an add
-// that is not linked yet, but it never undercounts and never falls below zero.
+// Len is exact when nothing else touches the bag; concurrently it can count
+// an unlinked add, but never undercounts or goes negative.
 func (b *Bag[T]) Len() int {
 	var total int64
 	for i := range b.shards {
@@ -260,13 +238,8 @@ func (b *Bag[T]) Values() []T {
 	return out
 }
 
-// All returns an iterator over every value in the bag, in indeterminate order.
-//
-// The walk reads one shard chain at a time. The result is therefore a snapshot
-// per shard, not a snapshot of the whole bag at one instant. A node another
-// goroutine takes during the walk stays valid, because the collector keeps it
-// alive while the walk holds it, and because its next pointer never changes.
-// So the walk can report a value that is already gone.
+// All iterates every value, in indeterminate order, one shard chain at a
+// time; a taken node's next pointer never changes, so it can still be yielded.
 func (b *Bag[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		for i := range b.shards {

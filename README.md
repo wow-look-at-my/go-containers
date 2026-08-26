@@ -107,6 +107,24 @@ Also: `Store`, `Load`, `TryAdd`, `LoadOrStore`, `Delete`, `LoadAndDelete`,
 package-level `CompareAndSwap` and `CompareAndDelete`. `New` is required; the
 zero value panics with a message that says so.
 
+## concurrentset
+
+`concurrentset.Set[T]` is an unordered collection of unique elements, safe for
+concurrent use. It is a thin wrapper over `concurrentmap.Map[T, struct{}]`,
+so it inherits that type's sharded locking rather than reimplementing it.
+
+```go
+seen := concurrentset.New[string]()
+if seen.Add(id) {
+    // id was not seen before
+}
+```
+
+Also: `AddRange`, `Remove`, `Contains`, `Len`, `IsEmpty`, `Clear`, the `All`
+iterator, and `Values`. `New` takes the same options as `concurrentmap.New`.
+Every operation is one `concurrentmap` call; see the Performance section below
+for the benchmark that checks the wrapper costs nothing over a hand-rolled set.
+
 ## concurrentlist, concurrentstack, concurrentbag
 
 Three lock-free collections that differ only in the order they give back.
@@ -245,6 +263,18 @@ load of an immutable map and hard to beat, and it loses a 90/10 read-write
 mix to both alternatives. If a workload is read-mostly over a stable key set,
 use `sync.Map`. Reach for this when writes contend, when `Len` is on a hot
 path, or when you need the exactly-once `Compute` family.
+
+**concurrentset** wraps `concurrentmap.Map[T, struct{}]` rather than sharding
+and locking again from scratch, and a `DirectSet` benchmark baseline (same
+sharding, one `set.Set[T]` per shard instead of `concurrentmap`'s generic
+`Map`) shows the wrapper is not just as fast -- for `Add` it is faster: 67/79/80ns
+for `Set` against 104/128/129ns for `DirectSet` at p=1/4/16, both against a
+mutex-guarded `set.Set` at 102/110/113ns. The gap is semantics, not sharding:
+`concurrentmap.Map.TryAdd` checks presence before writing, while `set.Set.Add`
+always writes and compares lengths after, so a hot, mostly-already-present key
+set pays for a map mutation `TryAdd` skips. `Contains` has no such asymmetry
+and the two are within noise (65/60/60ns against 60/61/60ns), both well ahead
+of the mutex baseline (81/105/111ns).
 
 The methodology, including the two rules that keep a concurrent benchmark from
 lying, is in [docs/concurrency.md](docs/concurrency.md).

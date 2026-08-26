@@ -9,24 +9,9 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs the same workload on List and on what a Go caller
-// writes instead: a mutex around a slice, and a buffered channel.
-//
-// The channel is not an equivalent of a List. It cannot grow without a bound,
-// it cannot be read without removal, and it has no bulk operation. It is here
-// because it is what a Go programmer reaches for, so the comparison is the one
-// a reader wants.
-//
-// Memory is the reason the fill benchmarks build a fresh collection per
-// iteration. An append-only benchmark on one shared collection holds every
-// element that it ever appends, and the framework raises the iteration count
-// until that is gigabytes.
+// Every benchmark runs List against a mutex-guarded slice and a buffered channel.
 
-// Sinks keep a result alive so the compiler cannot delete the work.
-//
-// A parallel benchmark must use sinkShared, never the plain ones. Several
-// goroutines write the sink there, and a plain variable makes that a data
-// race that the detector fails the run over.
+// Sinks keep results alive; a parallel benchmark must use sinkShared, or -race fails.
 var (
 	sinkInt    int
 	sinkBool   bool
@@ -284,9 +269,8 @@ func BenchmarkCompareAppendContended(b *testing.B) {
 		nil)
 }
 
-// drain starts one goroutine that removes elements until the caller closes the
-// returned channel. It keeps an append-only benchmark from holding every
-// element it appends.
+// drain removes elements until the returned channel closes, so an append-only
+// benchmark does not hold every element it appends.
 func drain(take func() bool) chan struct{} {
 	done := make(chan struct{})
 	go func() {

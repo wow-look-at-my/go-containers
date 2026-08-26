@@ -33,8 +33,7 @@ func (s *Set[T]) Add(elem T) bool {
 	if s.m == nil {
 		s.m = make(map[T]struct{}, 1)
 	}
-	// One insert, and the size decides what it did: a lookup followed by an
-	// insert hashes the element twice to learn the same thing.
+	// One insert; a lookup-then-insert would hash the element twice.
 	before := len(s.m)
 	s.m[elem] = struct{}{}
 	return len(s.m) != before
@@ -105,10 +104,7 @@ func (s *Set[T]) Clear() {
 	clear(s.m)
 }
 
-// Clone returns a shallow copy of the set.
-//
-// The copy is a range loop, not maps.Clone: for a map whose values are empty
-// structs the loop measured faster, and Clone is on the Union path.
+// Clone is a range loop, not maps.Clone: measured faster for empty-struct maps, and it's on the Union path.
 func (s Set[T]) Clone() Set[T] {
 	c := Set[T]{m: make(map[T]struct{}, len(s.m))}
 	for k := range s.m {

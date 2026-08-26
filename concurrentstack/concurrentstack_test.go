@@ -302,8 +302,7 @@ func TestConcurrentProducersAndConsumers(t *testing.T) {
 	done.Store(true)
 	consumers.Wait()
 
-	// Nothing is lost and nothing is duplicated: what the consumers took, plus
-	// what the stack still holds, is exactly what the producers pushed.
+	// Taken plus what remains must equal exactly what was pushed.
 	got := drain(s)
 	for _, part := range taken {
 		got = append(got, part...)
@@ -320,8 +319,7 @@ func TestConcurrentProducersAndConsumers(t *testing.T) {
 }
 
 func TestConcurrentStacksKeepGoroutineLIFO(t *testing.T) {
-	// Nobody else touches a goroutine's own stack, so its pushes must come back
-	// in its own reverse order.
+	// One goroutine's pushes must come back in its own reverse order.
 	var wg sync.WaitGroup
 	for g := range producers {
 		wg.Add(1)

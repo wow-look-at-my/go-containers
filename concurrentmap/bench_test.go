@@ -7,21 +7,14 @@ import (
 	"testing"
 )
 
-// Every benchmark here runs the same workload three times: on Map, on
-// sync.Map, and on the RWMutex plus map[int]int a caller writes by hand. The
-// three share their key space and their access pattern, so the difference
-// between the lines is the cost of the type.
-//
-// The parallel benchmarks sweep b.SetParallelism, because the whole point of a
-// sharded map is how it behaves as the goroutine count grows past the core
-// count.
+// Every benchmark runs the same workload on Map, sync.Map, and a hand-rolled
+// RWMutex-guarded map[int]int, sweeping b.SetParallelism past the core count
+// -- the whole point of sharding.
 
 const (
-	// mapSize is the number of keys every prepared map holds. It is a power
-	// of two, so a key index masks down and needs no divide.
+	// mapSize is every prepared map's key count, a power of two so a key index masks down.
 	mapSize = 1 << 12
 	keyMask = mapSize - 1
-
 	// hotKeys is the small key space the contended benchmarks share.
 	hotKeys = 64
 	hotMask = hotKeys - 1
@@ -30,17 +23,14 @@ const (
 // parallelism sweeps the goroutine count as a multiple of GOMAXPROCS.
 var parallelism = []int{1, 4, 16}
 
-// Sinks keep a result alive so the compiler cannot delete the work. A parallel
-// benchmark folds a goroutine-local total into sinkParallel once, after its
-// loop, so the race detector has nothing to report.
+// Sinks keep results alive; a parallel benchmark folds into sinkParallel once, after its loop.
 var (
 	sinkInt      int
 	sinkBool     bool
 	sinkParallel atomic.Int64
 )
 
-// startSeq hands each parallel goroutine a distinct start index. Without it
-// every goroutine walks the key space in lockstep and shares one cache line.
+// startSeq gives each goroutine a distinct start index, or all would share one cache line in lockstep.
 var startSeq atomic.Int64
 
 func nextStart() int {

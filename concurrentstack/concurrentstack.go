@@ -13,19 +13,12 @@ type node[T any] struct {
 	next  *node[T]
 }
 
-// Stack is a last-in-first-out collection that many goroutines can use at the
-// same time. It is a Treiber stack: every operation is a compare-and-swap on
-// one atomic pointer, and there is no mutex on any path.
-//
-// The zero value is an empty stack ready to use. Do not copy a Stack after
-// first use.
+// Stack is a lock-free Treiber stack: every op is a CAS on one atomic
+// pointer. Zero value ready to use; do not copy after first use.
 type Stack[T any] struct {
 	top atomic.Pointer[node[T]]
 
-	// A push adds to length BEFORE its compare-and-swap, and a pop subtracts
-	// AFTER its compare-and-swap. This order keeps the counter at or above the
-	// true length. The other order lets Clear miss a push in flight and leave
-	// the counter one too high forever.
+	// Push adds BEFORE its CAS, Pop subtracts AFTER -- so length never undercounts.
 	length atomic.Int64
 }
 
@@ -61,8 +54,7 @@ func (s *Stack[T]) PushRange(values ...T) {
 		return
 	}
 
-	// Build the chain before the loop. The retry then costs one
-	// compare-and-swap, not one per value.
+	// Build the chain first, so a retry costs one CAS, not one per value.
 	nodes := make([]node[T], len(values))
 	for i, v := range values {
 		nodes[i].value = v
@@ -91,10 +83,7 @@ func (s *Stack[T]) TryPop() (T, bool) {
 			var zero T
 			return zero, false
 		}
-		// ABA cannot happen here. The stack never recycles a node, and this
-		// goroutine holds a live reference to old, so the collector cannot put
-		// a new node at that address while the compare-and-swap runs. Never add
-		// a free list or a sync.Pool of nodes: either one brings ABA back.
+		// No ABA: nodes are never recycled, so this live reference pins old's address.
 		if s.top.CompareAndSwap(old, old.next) {
 			s.length.Add(-1)
 			return old.value, true
@@ -118,9 +107,7 @@ func (s *Stack[T]) TryPopRange(buf []T) int {
 			return 0
 		}
 
-		// The walk is safe without the pointer being stable: the collector
-		// keeps every node this chain reaches alive, even nodes another
-		// goroutine already popped.
+		// Safe without pointer stability: the collector keeps every reached node alive, even popped ones.
 		count := 1
 		last := old
 		for count < len(buf) && last.next != nil {
@@ -140,9 +127,7 @@ func (s *Stack[T]) TryPopRange(buf []T) int {
 	}
 }
 
-// TryPeek returns the top value and leaves it on the stack. It reports false
-// and the zero value of T when the stack is empty. Another goroutine can pop
-// that value before the caller reads the result.
+// TryPeek returns the top value without removing it; false when empty. Another goroutine can pop it first.
 func (s *Stack[T]) TryPeek() (T, bool) {
 	if top := s.top.Load(); top != nil {
 		return top.value, true
@@ -151,11 +136,7 @@ func (s *Stack[T]) TryPeek() (T, bool) {
 	return zero, false
 }
 
-// Len returns the number of values on the stack.
-//
-// The result is a snapshot. Another goroutine can push or pop before the
-// caller reads it. A push in flight counts from the moment it starts, so the
-// result is never below the true length.
+// Len is a snapshot; a push in flight counts from the moment it starts, so it never undercounts.
 func (s *Stack[T]) Len() int {
 	return int(s.length.Load())
 }
@@ -171,8 +152,7 @@ func (s *Stack[T]) IsEmpty() bool {
 func (s *Stack[T]) Clear() {
 	old := s.top.Swap(nil)
 
-	// The walk is what keeps Len correct: the counter must lose exactly the
-	// nodes this call took, and no cheaper count of them exists.
+	// The walk is what keeps Len correct: no cheaper count of the taken nodes exists.
 	var taken int64
 	for cur := old; cur != nil; cur = cur.next {
 		taken++
@@ -180,11 +160,8 @@ func (s *Stack[T]) Clear() {
 	s.length.Add(-taken)
 }
 
-// Values returns the values on the stack, from the top down.
-//
-// The result is a snapshot of one chain, not of one point in time. Another
-// goroutine can pop a value while the walk runs, and the walk still returns
-// that value.
+// Values returns the values top-down: a snapshot of one chain, not one
+// instant -- a value popped mid-walk can still be returned.
 func (s *Stack[T]) Values() []T {
 	out := make([]T, 0, s.Len())
 	for cur := s.top.Load(); cur != nil; cur = cur.next {
@@ -193,9 +170,8 @@ func (s *Stack[T]) Values() []T {
 	return out
 }
 
-// All returns an iterator over the values on the stack, from the top down.
-// The iterator loads the top when the loop starts. It has the same snapshot
-// limits as [Stack.Values].
+// All iterates the values top-down, loading top when the loop starts; same
+// snapshot limits as [Stack.Values].
 func (s *Stack[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		for cur := s.top.Load(); cur != nil; cur = cur.next {

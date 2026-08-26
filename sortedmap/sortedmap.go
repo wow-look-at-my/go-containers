@@ -30,11 +30,7 @@ func isRed[K, V any](n *node[K, V]) bool {
 	return n != nil && n.color == red
 }
 
-// SortedMap is an ordered key-value map that maintains keys in sorted order
-// using a left-leaning red-black tree. It provides O(log n) time for Put,
-// Get, Delete, Min, Max, Floor, and Ceiling.
-//
-// The zero value is not usable; create instances with [New] or [NewWithCompare].
+// SortedMap is a red-black tree, O(log n) ops, always in order. Zero value: use [New] or [NewWithCompare].
 type SortedMap[K, V any] struct {
 	root *node[K, V]
 	size int
@@ -46,9 +42,7 @@ func New[K cmp.Ordered, V any]() *SortedMap[K, V] {
 	return &SortedMap[K, V]{cmp: cmp.Compare[K]}
 }
 
-// NewWithCompare creates an empty SortedMap that orders keys using the
-// provided comparison function. The function must return a negative value
-// when a < b, zero when a == b, and a positive value when a > b.
+// NewWithCompare orders keys by compare: negative for a < b, zero for equal, positive for a > b.
 func NewWithCompare[K, V any](compare func(a, b K) int) *SortedMap[K, V] {
 	return &SortedMap[K, V]{cmp: compare}
 }

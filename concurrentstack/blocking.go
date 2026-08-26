@@ -7,24 +7,14 @@ import (
 	"github.com/wow-look-at-my/go-containers/internal/blocking"
 )
 
-// ErrCompleted is the error a push or a pop returns after CompleteAdding. A
-// pop returns it only after the stack is also empty.
-//
-// The BlockingList and BlockingBag types report the same error value, so one
-// consumer can handle every blocking collection with one comparison.
+// ErrCompleted is what a push or pop returns after CompleteAdding; shared with BlockingList/BlockingBag.
 var ErrCompleted = blocking.ErrCompleted
 
 // Unbounded is the capacity of a stack that never makes a push wait.
 const Unbounded = blocking.Unbounded
 
-// BlockingStack is a Stack that can make a caller wait.
-//
-// A push waits while a bounded stack is full. A pop waits while the stack is
-// empty. The order stays the same as Stack: the pop returns the value that was
-// pushed last.
-//
-// Every wait ends on a context, so no caller can be stuck. Use NewBlocking to
-// create one; the zero value is not usable.
+// BlockingStack is a Stack whose Push/Pop wait on full/empty, bounded by ctx.
+// Zero value not usable -- use NewBlocking.
 type BlockingStack[T any] struct {
 	stack *Stack[T]
 	core  *blocking.Core[T]
@@ -37,9 +27,7 @@ type blockingConfig struct {
 	capacity int
 }
 
-// WithCapacity bounds the stack to n values. A push then waits while the stack
-// is full, which stops the producers from running away from the consumers. A
-// value of zero or below leaves the stack unbounded.
+// WithCapacity bounds the stack to n values, so Push waits once it fills. Zero or below is unbounded.
 func WithCapacity(n int) BlockingOption {
 	return func(c *blockingConfig) { c.capacity = n }
 }
@@ -55,48 +43,33 @@ func NewBlocking[T any](opts ...BlockingOption) *BlockingStack[T] {
 	return &BlockingStack[T]{stack: s, core: blocking.NewCore[T](s, cfg.capacity)}
 }
 
-// Push adds value to the top of the stack, and waits while a bounded stack is
-// full.
-//
-// It returns ErrCompleted after CompleteAdding, and ctx.Err() when ctx ends
-// first.
+// Push waits while a bounded stack is full; ErrCompleted after CompleteAdding, or ctx.Err().
 func (b *BlockingStack[T]) Push(ctx context.Context, value T) error {
 	return b.core.Add(ctx, value)
 }
 
-// TryPush adds value without any wait. It reports false when the stack is full
-// or complete for pushes.
+// TryPush adds value without waiting; false when full or complete.
 func (b *BlockingStack[T]) TryPush(value T) bool { return b.core.TryAdd(value) }
 
-// Pop removes and returns the value on top, and waits while the stack is
-// empty.
-//
-// It returns ErrCompleted when the stack is complete for pushes and empty, and
-// ctx.Err() when ctx ends first.
+// Pop removes the top value, waiting while the stack is empty; ErrCompleted once complete and empty, or ctx.Err().
 func (b *BlockingStack[T]) Pop(ctx context.Context) (T, error) { return b.core.Take(ctx) }
 
-// TryPop removes and returns the value on top without any wait. It reports
-// false when the stack is empty.
+// TryPop removes the top value without waiting; false when the stack is empty.
 func (b *BlockingStack[T]) TryPop() (T, bool) { return b.core.TryTake() }
 
-// Consume returns an iterator that removes values, newest first, until the
-// stack is complete and empty, or until ctx ends. It is the loop that a
-// consumer goroutine wants.
+// Consume removes values, newest first, until the stack completes and empties, or ctx ends.
 func (b *BlockingStack[T]) Consume(ctx context.Context) iter.Seq[T] { return b.core.Consume(ctx) }
 
-// CompleteAdding marks the stack complete for pushes and wakes every waiting
-// goroutine. Consumers drain what is left, and then see ErrCompleted.
+// CompleteAdding marks the stack complete and wakes every waiter; they drain what's left, then see ErrCompleted.
 func (b *BlockingStack[T]) CompleteAdding() { b.core.CompleteAdding() }
 
 // IsAddingCompleted reports whether CompleteAdding ran.
 func (b *BlockingStack[T]) IsAddingCompleted() bool { return b.core.IsAddingCompleted() }
 
-// IsCompleted reports whether the stack is complete for pushes and empty. A
-// consumer that sees true will never receive another value.
+// IsCompleted reports complete-and-empty; true means no consumer gets another value.
 func (b *BlockingStack[T]) IsCompleted() bool { return b.core.IsCompleted() }
 
-// Len returns the number of values in the stack. The result is a reading:
-// another goroutine can change it before the caller acts on it.
+// Len is a reading; another goroutine can change it before the caller acts.
 func (b *BlockingStack[T]) Len() int { return b.core.Len() }
 
 // IsEmpty reports whether the stack holds no value that a pop can remove.
@@ -105,12 +78,10 @@ func (b *BlockingStack[T]) IsEmpty() bool { return b.core.IsEmpty() }
 // Cap returns the bounded capacity, or Unbounded.
 func (b *BlockingStack[T]) Cap() int { return b.core.Cap() }
 
-// TryPeek returns the value on top and leaves it in the stack. It reports
-// false when the stack is empty.
+// TryPeek returns the top value without removing it; false when the stack is empty.
 func (b *BlockingStack[T]) TryPeek() (T, bool) { return b.stack.TryPeek() }
 
-// All returns an iterator over the values, top first, and removes none of
-// them. It carries the same best-effort reading as Stack.All.
+// All iterates the values, top first, removing none; same best-effort reading as Stack.All.
 func (b *BlockingStack[T]) All() iter.Seq[T] { return b.stack.All() }
 
 // Values returns the values as a slice, top first, and removes none of them.

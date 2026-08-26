@@ -136,6 +136,17 @@ A cancelled wait that has already been handed a permit still succeeds. The
 permit stands for one element or one free slot, and a caller that dropped it
 would lose that element or that slot for good.
 
+The bound is proven by the semaphores, not by `Len()`. Every store's counter
+rises before its compare-and-swap links the node (documented on `Bag.Len`),
+so a concurrent `Len()` read can report more than capacity with no real
+breach underneath it -- and a `take()` releases its free permit before
+returning the value, so an external caller's own bookkeeping can lag that
+release by up to one item per consumer goroutine. The bounded
+producer/consumer tests in each package track outstanding items with their
+own counter, incremented after a successful add and decremented after a
+successful take, with slack equal to the number of consumer goroutines --
+the exact size of that lag, not a fudge factor.
+
 ## Reading the benchmarks
 
 Every `BenchmarkCompare*` runs the same workload on the library type and on

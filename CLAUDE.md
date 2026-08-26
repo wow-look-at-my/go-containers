@@ -29,6 +29,8 @@ tests with coverage, and builds. Never run a bare `go` command.
   `hash/maphash.Comparable` picks the shard; each shard is padded to 128 bytes so two never share a cache line. The zero value is NOT
   usable and every method says so with a panic that names New. The callbacks of LoadOrCompute, AddOrUpdate and Compute run UNDER the
   shard lock, so each runs exactly once and the operation is atomic — .NET runs its delegate outside the lock and cannot promise either.
+- `concurrentset/concurrentset.go` — `Set[T]`, a thin wrapper over `concurrentmap.Map[T, struct{}]`: every method is one call into the
+  map, so the sharding and locking live in exactly one place. `New` forwards `concurrentmap`'s own options.
 - `concurrentlist/concurrentlist.go` — `List[T]`, a lock-free first-in-first-out collection over a chain of contiguous segments. An
   append reserves one slot with one atomic add; a per-slot ready flag publishes the value and is what makes the plain value field
   race-free. A take never clears its slot, because that write would race with All. The zero value is an empty list.

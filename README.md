@@ -107,6 +107,24 @@ Also: `Store`, `Load`, `TryAdd`, `LoadOrStore`, `Delete`, `LoadAndDelete`,
 package-level `CompareAndSwap` and `CompareAndDelete`. `New` is required; the
 zero value panics with a message that says so.
 
+## concurrentset
+
+`concurrentset.Set[T]` is an unordered collection of unique elements, safe for
+concurrent use. It is a thin wrapper over `concurrentmap.Map[T, struct{}]`,
+so it inherits that type's sharded locking rather than reimplementing it.
+
+```go
+seen := concurrentset.New[string]()
+if seen.Add(id) {
+    // id was not seen before
+}
+```
+
+Also: `AddRange`, `Remove`, `Contains`, `Len`, `IsEmpty`, `Clear`, the `All`
+iterator, and `Values`. `New` takes the same options as `concurrentmap.New`.
+Every operation is one `concurrentmap` call, so its contended performance is
+`concurrentmap`'s -- see the `concurrentmap` figures below.
+
 ## concurrentlist, concurrentstack, concurrentbag
 
 Three lock-free collections that differ only in the order they give back.

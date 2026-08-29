@@ -38,7 +38,7 @@ and back.
 
 `orderedset.OrderedSet[T]` is a set that iterates in the order its elements
 were first added. Reach for it when a `set.Set` would do except that the output
-has to come back in the order it went in — deduplicating a list, collecting the
+has to come back in the order it went in: deduplicating a list, collecting the
 names of everything that went wrong, building a stable JSON array.
 
 ```go
@@ -46,7 +46,7 @@ import "github.com/wow-look-at-my/go-containers/orderedset"
 
 missing := orderedset.Of("HOME", "PATH", "HOME")
 missing.Values()                       // ["HOME" "PATH"], first-added order
-for name := range missing.Backward() { … }
+for name := range missing.Backward() { ... }
 ```
 
 The API is `set.Set`'s, plus `Backward` and `EqualOrdered`, and every result

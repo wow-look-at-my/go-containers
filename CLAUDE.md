@@ -14,12 +14,12 @@ tests with coverage, and builds. Never run a bare `go` command.
   Intersection, and IsDisjoint iterate the SMALLER set on purpose, and RemoveSet picks its side the same way.
 - `set/json.go` — a set marshals to a JSON array of its elements and unmarshals from one, replacing whatever it held. An empty array leaves the map
   nil rather than allocating.
-- `orderedset/orderedset.go` — `OrderedSet[T comparable]`, `set.Set`'s API in first-added order, plus `Backward` and `EqualOrdered`. A `map[T]int`
+- `orderedset/orderedset.go` - `OrderedSet[T comparable]`, `set.Set`'s API in first-added order, plus `Backward` and `EqualOrdered`. A `map[T]int`
   holds each element's slot in an append-only slice, so Add, Remove and Contains are all O(1). A removal deletes the map entry and LEAVES the slot;
   `live` is the one place that decides a slot counts, by asking whether index still names it, which is also what makes a re-added element land at the
   end with its old slot ignored. No sentinel value is reserved, so T keeps its whole domain. `compact` rebuilds the slice only once the dead
   outnumber the live, which is what makes a removal constant on average. Every algebraic operation has a defined order and the tests pin it.
-- `orderedset/json.go` — the same JSON array as `set`, in order, and unmarshalling takes the array's order.
+- `orderedset/json.go` - the same JSON array as `set`, in order, and unmarshalling takes the array's order.
 - `sortedmap/sortedmap.go` — `SortedMap[K, V]`, a left-leaning red-black tree. Keys stay in order at all times, so Put, Get, Delete, Min, Max, Floor
   and Ceiling are O(log n) and no walk ever sorts. `New` orders with `cmp.Compare`; `NewWithCompare` takes a comparison function for a key type with
   no natural order. The zero value is NOT usable — the comparison function is nil. Iterators: All, Keys, Values, Backward, and the half-open Range.

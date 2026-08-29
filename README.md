@@ -1,6 +1,6 @@
 # go-containers
 
-Generic container types for Go: a set, a sorted map, a weak-referenced event,
+Generic container types for Go: a set, an insertion-ordered set, a sorted map, a weak-referenced event,
 and a family of concurrent collections — a sharded map, a lock-free ordered
 list, a lock-free stack and bag, and a blocking twin of each. Pure Go, one
 dependency (testify, tests only).
@@ -33,6 +33,33 @@ iterator), and the algebraic operations: Union, Intersection, Difference,
 SymmetricDifference, the subset and superset predicates, Equal, IsDisjoint,
 and the in-place AddSet, RemoveSet, RetainAll. A set marshals to a JSON array
 and back.
+
+## orderedset
+
+`orderedset.OrderedSet[T]` is a set that iterates in the order its elements
+were first added. Reach for it when a `set.Set` would do except that the output
+has to come back in the order it went in: deduplicating a list, collecting the
+names of everything that went wrong, building a stable JSON array.
+
+```go
+import "github.com/wow-look-at-my/go-containers/orderedset"
+
+missing := orderedset.Of("HOME", "PATH", "HOME")
+missing.Values()                       // ["HOME" "PATH"], first-added order
+for name := range missing.Backward() { ... }
+```
+
+The API is `set.Set`'s, plus `Backward` and `EqualOrdered`, and every result
+has a defined order: Union is the left side then whatever the right side adds,
+Intersection and Difference keep the left order, and an element that is removed
+and added again goes to the end. `Equal` compares elements only; use
+`EqualOrdered` to compare the order too. The zero value is an empty set, and it
+marshals to a JSON array in order.
+
+An element's position lives in a `map[T]int` beside the slice, so Add, Remove
+and Contains are all constant-time. A removal leaves its slot behind rather
+than shifting the tail down, and the slots are reclaimed in one pass once the
+dead outnumber the live.
 
 ## sortedmap
 

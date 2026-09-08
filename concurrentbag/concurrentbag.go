@@ -72,7 +72,7 @@ func (s *shard[T]) pop() (T, bool) {
 // Bag keeps duplicates; no method blocks. unset value not usable -- use [New].
 type Bag[T any] struct {
 	shards []shard[T]
-	mask uint64
+	mask   uint64
 }
 
 // config holds the settings the options write.

@@ -47,7 +47,6 @@ func TestGrowthPreservesOrderAcrossWrap(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		q.Enqueue(i)
 	}
-	// Dequeue two, so head is no longer at index 0.
 	v, _ := q.TryDequeue()
 	require.Equal(t, 0, v)
 	v, _ = q.TryDequeue()

@@ -2,7 +2,7 @@
 // shards its keys across independently locked partitions, so operations on
 // different shards never contend.
 //
-// The API follows .NET's ConcurrentDictionary. It differs on one point, and
+// The API follows.NET's ConcurrentDictionary. It differs on a single point, and
 // the difference is deliberate: [Map.LoadOrCompute], [Map.AddOrUpdate] and
 // [Map.Compute] run the caller's function while the shard lock is held.
 package concurrentmap
@@ -17,7 +17,7 @@ import (
 	"unsafe"
 )
 
-// Shard-count bounds: the floor stops a small machine serializing on one lock; the ceiling keeps Len cheap.
+// Shard-count bounds: the floor stops a small machine serializing on a single lock; the ceiling keeps Len cheap.
 const (
 	minShards = 8
 	maxShards = 1024
@@ -26,13 +26,12 @@ const (
 // errZeroMap names the fix instead of panicking with a bare nil-map trace.
 const errZeroMap = "concurrentmap: the zero Map is not usable; call New"
 
-// shardBytes covers a 64-byte cache line plus the adjacent-line prefetch on amd64, so two shards never share one.
 const shardBytes = 128
 
-// padBytes fills the rest: a map value is one pointer whatever K/V are.
+// padBytes fills the rest: a map value is a single pointer whatever K/V are.
 const padBytes = shardBytes - unsafe.Sizeof(sync.RWMutex{}) - unsafe.Sizeof(map[int]int(nil))
 
-// shard is one independently locked partition of a [Map]. Each shard is its
+// shard is a single independently locked partition of a [Map]. Each shard is its
 // own allocation, so the padding survives.
 type shard[K comparable, V any] struct {
 	mu sync.RWMutex
@@ -40,15 +39,15 @@ type shard[K comparable, V any] struct {
 	_  [padBytes]byte
 }
 
-// pair is one key and its value in an iteration snapshot.
+// pair is a single key and its value in an iteration snapshot.
 type pair[K comparable, V any] struct {
 	key   K
 	value V
 }
 
 // Map is safe for concurrent use: keys spread across shards, each its own
-// lock. Zero value NOT usable (every method panics) -- create with [New], and
-// never copy a Map after first use.
+// lock. unset value NOT usable (every method panics) -- create with [New], and
+// never copy a Map after earliest use.
 type Map[K comparable, V any] struct {
 	shards []*shard[K, V]
 	seed   maphash.Seed
@@ -66,7 +65,6 @@ type config struct {
 // Option configures a [Map] at construction. Pass options to [New].
 type Option func(*config)
 
-// WithConcurrency sets the shard count the Map aims for, rounded up to a power of two and clamped to [8, 1024].
 func WithConcurrency(n int) Option {
 	return func(c *config) { c.concurrency = n }
 }
@@ -78,7 +76,6 @@ func WithCapacity(n int) Option {
 }
 
 // New creates an empty Map. Without options the Map takes the next power of
-// two at or above 4*GOMAXPROCS shards, clamped to the range [8, 1024].
 func New[K comparable, V any](opts ...Option) *Map[K, V] {
 	cfg := config{concurrency: 4 * runtime.GOMAXPROCS(0)}
 	for _, opt := range opts {
@@ -102,14 +99,12 @@ func New[K comparable, V any](opts ...Option) *Map[K, V] {
 	return m
 }
 
-// shardCount clamps want to the bounds and rounds it up to a power of two.
-// The count must be a power of two, or the mask cannot select a shard.
 func shardCount(want int) int {
 	want = min(max(want, minShards), maxShards)
 	return 1 << bits.Len(uint(want-1))
 }
 
-// mustInit panics when the caller reaches the zero Map.
+// mustInit panics when the caller reaches the empty Map.
 func (m *Map[K, V]) mustInit() {
 	if m.shards == nil {
 		panic(errZeroMap)
@@ -132,7 +127,7 @@ func (m *Map[K, V]) Store(key K, value V) {
 	s.mu.Unlock()
 }
 
-// Load returns the value stored for key. The second result reports whether
+// Load returns the value stored for key. the next result reports whether
 // the key was present.
 func (m *Map[K, V]) Load(key K) (V, bool) {
 	s := m.shard(key)
@@ -186,8 +181,8 @@ func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	return value, false
 }
 
-// LoadOrCompute loads key, or calls fn once under the shard lock to compute
-// and store it -- unlike .NET's GetOrAdd, which runs its delegate unlocked.
+// LoadOrCompute loads key, or calls fn a single time under the shard lock to compute
+// and store it -- unlike.NET's GetOrAdd, which runs its delegate unlocked.
 // fn must not call back into this Map (deadlock) or block (stalls the shard).
 func (m *Map[K, V]) LoadOrCompute(key K, fn func(K) V) (actual V, loaded bool) {
 	s := m.shard(key)
@@ -224,7 +219,7 @@ func (m *Map[K, V]) AddOrUpdate(key K, add V, update func(key K, old V) V) V {
 	return add
 }
 
-// Compute calls fn once, under the shard lock, with the current value and its
+// Compute calls fn a single time, under the shard lock, with the current value and its
 // presence; remove deletes the key, else newValue is stored. [Map.LoadOrCompute]'s rules apply to fn.
 func (m *Map[K, V]) Compute(key K, fn func(old V, loaded bool) (newValue V, remove bool)) (V, bool) {
 	s := m.shard(key)
@@ -250,7 +245,7 @@ func (m *Map[K, V]) Delete(key K) {
 	s.mu.Unlock()
 }
 
-// LoadAndDelete removes key and returns the value it held. The second result
+// LoadAndDelete removes key and returns the value it held. the next result
 // reports whether the key was present.
 func (m *Map[K, V]) LoadAndDelete(key K) (V, bool) {
 	s := m.shard(key)
@@ -265,7 +260,7 @@ func (m *Map[K, V]) LoadAndDelete(key K) (V, bool) {
 
 // ---------- whole-map operations ----------
 
-// Len locks one shard at a time; exact only while nothing else writes.
+// Len locks a single shard at a time; exact only while nothing else writes.
 func (m *Map[K, V]) Len() int {
 	m.mustInit()
 	n := 0
@@ -277,7 +272,7 @@ func (m *Map[K, V]) Len() int {
 	return n
 }
 
-// IsEmpty reports whether the Map holds no keys. It stops at the first shard
+// IsEmpty reports whether the Map holds no keys. It stops at the earliest shard
 // that holds a key.
 func (m *Map[K, V]) IsEmpty() bool {
 	m.mustInit()
@@ -292,7 +287,7 @@ func (m *Map[K, V]) IsEmpty() bool {
 	return true
 }
 
-// Clear removes every key from the Map. Clear locks one shard at a time, so a
+// Clear removes every key from the Map. Clear locks a single shard at a time, so a
 // concurrent writer can add a key to a shard Clear already emptied.
 func (m *Map[K, V]) Clear() {
 	m.mustInit()
@@ -303,7 +298,7 @@ func (m *Map[K, V]) Clear() {
 	}
 }
 
-// takeSnapshot copies one shard into a pooled buffer under the read lock.
+// takeSnapshot copies a single shard into a pooled buffer under the read lock.
 func (m *Map[K, V]) takeSnapshot(s *shard[K, V]) *[]pair[K, V] {
 	buf, _ := m.snapshots.Get().(*[]pair[K, V])
 	if buf == nil {
@@ -325,8 +320,8 @@ func (m *Map[K, V]) returnSnapshot(buf *[]pair[K, V]) {
 	m.snapshots.Put(buf)
 }
 
-// All copies one shard under its read lock, releases it, then yields that
-// shard's pairs -- a shard-at-a-time view, not one point in time.
+// All copies a single shard under its read lock, releases it, then yields that
+// shard's pairs -- a shard-at-a-time view, not a single point in time.
 func (m *Map[K, V]) All() iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
 		m.mustInit()

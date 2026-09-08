@@ -14,7 +14,7 @@ var ErrCompleted = blocking.ErrCompleted
 const Unbounded = blocking.Unbounded
 
 // BlockingStack is a Stack whose Push/Pop wait on full/empty, bounded by ctx.
-// Zero value not usable -- use NewBlocking.
+// Unset value not usable -- use NewBlocking.
 type BlockingStack[T any] struct {
 	stack *Stack[T]
 	core  *blocking.Core[T]
@@ -27,7 +27,7 @@ type blockingConfig struct {
 	capacity int
 }
 
-// WithCapacity bounds the stack to n values, so Push waits once it fills. Zero or below is unbounded.
+// WithCapacity bounds the stack to n values, so Push waits a single time it fills. empty or below is unbounded.
 func WithCapacity(n int) BlockingOption {
 	return func(c *blockingConfig) { c.capacity = n }
 }
@@ -51,13 +51,13 @@ func (b *BlockingStack[T]) Push(ctx context.Context, value T) error {
 // TryPush adds value without waiting; false when full or complete.
 func (b *BlockingStack[T]) TryPush(value T) bool { return b.core.TryAdd(value) }
 
-// Pop removes the top value, waiting while the stack is empty; ErrCompleted once complete and empty, or ctx.Err().
+// Pop removes the top value, waiting while the stack is empty; ErrCompleted a single time complete and empty, or ctx.Err().
 func (b *BlockingStack[T]) Pop(ctx context.Context) (T, error) { return b.core.Take(ctx) }
 
 // TryPop removes the top value without waiting; false when the stack is empty.
 func (b *BlockingStack[T]) TryPop() (T, bool) { return b.core.TryTake() }
 
-// Consume removes values, newest first, until the stack completes and empties, or ctx ends.
+// Consume removes values, newest until the stack completes and empties, or ctx ends.
 func (b *BlockingStack[T]) Consume(ctx context.Context) iter.Seq[T] { return b.core.Consume(ctx) }
 
 // CompleteAdding marks the stack complete and wakes every waiter; they drain what's left, then see ErrCompleted.
@@ -81,8 +81,8 @@ func (b *BlockingStack[T]) Cap() int { return b.core.Cap() }
 // TryPeek returns the top value without removing it; false when the stack is empty.
 func (b *BlockingStack[T]) TryPeek() (T, bool) { return b.stack.TryPeek() }
 
-// All iterates the values, top first, removing none; same best-effort reading as Stack.All.
+// All iterates the values, top removing none; same best-effort reading as Stack.All.
 func (b *BlockingStack[T]) All() iter.Seq[T] { return b.stack.All() }
 
-// Values returns the values as a slice, top first, and removes none of them.
+// Values returns the values as a slice, top and removes none of them.
 func (b *BlockingStack[T]) Values() []T { return b.stack.Values() }

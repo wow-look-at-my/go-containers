@@ -20,7 +20,7 @@ var (
 	sinkSlice []int
 )
 
-// entry is one key-value pair of the sorted-slice implementation.
+// entry is a single key-value pair of the sorted-slice implementation.
 type entry struct {
 	key   int
 	value int
@@ -95,7 +95,7 @@ func makeSlice(ks []int) sortedSlice {
 	return s
 }
 
-// eachSize runs one implementation trio at every benchmark size.
+// eachSize runs a single implementation trio at every benchmark size.
 func eachSize(b *testing.B, tree, mapsort, slice func(b *testing.B, ks []int)) {
 	b.Helper()
 	for _, n := range benchSizes {
@@ -171,7 +171,7 @@ func BenchmarkComparePutExisting(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareDelete removes and reinserts one key per iteration, so the
+// BenchmarkCompareDelete removes and reinserts a single key per iteration, so the
 // container keeps its size and the timing covers both halves of the churn.
 func BenchmarkCompareDelete(b *testing.B) {
 	eachSize(b,
@@ -232,7 +232,6 @@ func BenchmarkCompareGetHit(b *testing.B) {
 }
 
 // BenchmarkCompareGetMiss probes keys that are absent: every key here is a multiple
-// of three, so the +1 never lands.
 func BenchmarkCompareGetMiss(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
@@ -344,7 +343,7 @@ func BenchmarkCompareKeys(b *testing.B) {
 }
 
 // BenchmarkCompareRange walks a 100-key window out of the middle. The map cannot do
-// this without ordering everything first, which is the whole gap.
+// this without ordering everything which is the whole gap.
 func BenchmarkCompareRange(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, ks []int) {
@@ -396,7 +395,6 @@ func BenchmarkCompareRange(b *testing.B) {
 		})
 }
 
-// rangeBounds returns a half-open window over the middle 100 keys.
 func rangeBounds(ks []int) (int, int) {
 	order := slices.Clone(ks)
 	slices.Sort(order)

@@ -37,7 +37,7 @@ func makeMap(n, off int) map[int]struct{} {
 	return m
 }
 
-// eachSize runs one pair of implementations at every benchmark size.
+// eachSize runs a single pair of implementations at every benchmark size.
 func eachSize(b *testing.B, set, hand func(b *testing.B, n int)) {
 	b.Helper()
 	for _, n := range benchSizes {
@@ -46,7 +46,7 @@ func eachSize(b *testing.B, set, hand func(b *testing.B, n int)) {
 	}
 }
 
-// pair runs one pair of implementations at a single size.
+// pair runs a single pair of implementations at a single size.
 func pair(b *testing.B, set, hand func(b *testing.B)) {
 	b.Helper()
 	b.Run("set", func(b *testing.B) { b.ReportAllocs(); set(b) })

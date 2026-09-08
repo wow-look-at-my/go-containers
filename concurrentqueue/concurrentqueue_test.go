@@ -88,8 +88,8 @@ func TestTryAddTryTake(t *testing.T) {
 	assert.Equal(t, 1, v)
 }
 
-// Many goroutines enqueue and dequeue at once; the queue must never lose or
-// duplicate a value, and Len must settle back to zero.
+// Many goroutines enqueue and dequeue at the same time; the queue must never lose or
+// duplicate a value, and Len must settle back to empty.
 func TestConcurrentProducersAndConsumers(t *testing.T) {
 	q := New[int]()
 	const n = 500

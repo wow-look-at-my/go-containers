@@ -4,7 +4,7 @@ package set
 import "fmt"
 
 // Set is an unordered collection of unique elements of type T.
-// The zero value is an empty set ready to use.
+// An unset value is an empty set ready to use.
 type Set[T comparable] struct {
 	m map[T]struct{}
 }
@@ -33,13 +33,13 @@ func (s *Set[T]) Add(elem T) bool {
 	if s.m == nil {
 		s.m = make(map[T]struct{}, 1)
 	}
-	// One insert; a lookup-then-insert would hash the element twice.
+	// A single insert; a lookup-then-insert would hash the element again.
 	before := len(s.m)
 	s.m[elem] = struct{}{}
 	return len(s.m) != before
 }
 
-// AddRange inserts one or more elements into the set.
+// AddRange inserts any number of elements into the set.
 func (s *Set[T]) AddRange(elems ...T) {
 	if s.m == nil {
 		s.m = make(map[T]struct{}, len(elems))
@@ -49,7 +49,7 @@ func (s *Set[T]) AddRange(elems ...T) {
 	}
 }
 
-// Remove deletes one or more elements from the set.
+// Remove deletes any number of elements from the set.
 func (s *Set[T]) Remove(elems ...T) {
 	if len(elems) == 1 {
 		delete(s.m, elems[0])
@@ -66,7 +66,7 @@ func (s Set[T]) Contains(elem T) bool {
 	return ok
 }
 
-// ContainsAll reports whether the set contains every one of the given elements.
+// ContainsAll reports whether the set contains each of the given elements.
 func (s Set[T]) ContainsAll(elems ...T) bool {
 	for _, e := range elems {
 		if _, ok := s.m[e]; !ok {
@@ -76,7 +76,7 @@ func (s Set[T]) ContainsAll(elems ...T) bool {
 	return true
 }
 
-// ContainsAny reports whether the set contains at least one of the given elements.
+// ContainsAny reports whether the set contains any of the given elements.
 func (s Set[T]) ContainsAny(elems ...T) bool {
 	for _, e := range elems {
 		if _, ok := s.m[e]; ok {
@@ -186,7 +186,7 @@ func (s Set[T]) Difference(other Set[T]) Set[T] {
 }
 
 // SymmetricDifference returns a new set containing elements that are in
-// exactly one of s or other.
+// a single side of s or other.
 func (s Set[T]) SymmetricDifference(other Set[T]) Set[T] {
 	out := New[T]()
 	for k := range s.m {

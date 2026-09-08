@@ -1,13 +1,13 @@
-// Package queue provides Queue, a generic first-in-first-out collection for
+// Package queue provides Queue, a generic FIFO collection for
 // single-goroutine use. For concurrent use, see concurrentqueue.
 package queue
 
 import "iter"
 
-// minCapacity avoids resizing twice for a queue that stays small.
+// minCapacity avoids resizing again for a queue that stays small.
 const minCapacity = 8
 
-// Queue is a first-in-first-out collection, not safe for concurrent use. Zero value ready to use.
+// Queue is a FIFO collection, not safe for concurrent use. unset value ready to use.
 type Queue[T any] struct {
 	buf   []T
 	head  int
@@ -46,7 +46,6 @@ func (q *Queue[T]) EnqueueRange(values ...T) {
 }
 
 // grow doubles the backing array and re-lays the elements out starting at
-// index 0, which is what lets the new array simply be twice the length
 // instead of accounting for the old wrap point.
 func (q *Queue[T]) grow() {
 	size := len(q.buf) * 2
@@ -62,7 +61,7 @@ func (q *Queue[T]) grow() {
 }
 
 // TryDequeue removes and returns the oldest value. It reports false and the
-// zero value of T when the queue is empty.
+// unset value of T when the queue is empty.
 func (q *Queue[T]) TryDequeue() (T, bool) {
 	if q.count == 0 {
 		var zero T
@@ -77,7 +76,7 @@ func (q *Queue[T]) TryDequeue() (T, bool) {
 }
 
 // TryPeek returns the oldest value and leaves it in the queue. It reports
-// false and the zero value of T when the queue is empty.
+// false and an unset value of T when the queue is empty.
 func (q *Queue[T]) TryPeek() (T, bool) {
 	if q.count == 0 {
 		var zero T
@@ -105,7 +104,7 @@ func (q *Queue[T]) Clear() {
 	q.head, q.count = 0, 0
 }
 
-// Values returns the values in the queue, oldest first.
+// Values returns the values in the queue, oldest earliest.
 func (q *Queue[T]) Values() []T {
 	out := make([]T, q.count)
 	for i := 0; i < q.count; i++ {
@@ -114,7 +113,7 @@ func (q *Queue[T]) Values() []T {
 	return out
 }
 
-// All returns an iterator over the values in the queue, oldest first.
+// All returns an iterator over the values in the queue, oldest earliest.
 func (q *Queue[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		for i := 0; i < q.count; i++ {

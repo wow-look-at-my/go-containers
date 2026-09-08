@@ -273,7 +273,6 @@ func TestStringTypes(t *testing.T) {
 	assert.False(t, !s.Contains("hello") || !s.Contains("world"), "missing expected string elements")
 }
 
-// ---------- zero-value set ----------
 
 func TestZeroValueAdd(t *testing.T) {
 	var s Set[int]

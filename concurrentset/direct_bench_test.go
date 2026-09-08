@@ -19,7 +19,7 @@ type directSet[T comparable] struct {
 
 const directShardBytes = 128
 
-// directPadBytes mirrors concurrentmap's padBytes: a set.Set is one map-sized field, same as any pointer-sized map value.
+// directPadBytes mirrors concurrentmap's padBytes: a set.Set is a single map-sized field, same as any pointer-sized map value.
 const directPadBytes = directShardBytes - unsafe.Sizeof(sync.RWMutex{}) - unsafe.Sizeof(set.Set[int]{})
 
 type directShard[T comparable] struct {

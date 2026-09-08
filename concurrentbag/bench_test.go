@@ -10,11 +10,11 @@ import (
 
 // Every benchmark runs Bag against a mutex-guarded slice and a buffered
 // channel -- what a Go caller reaches for without a bag. Add benchmarks run
-// against an arena one goroutine replaces every arenaOps ops, so a growing
+// against an arena a single goroutine replaces every arenaOps ops, so a growing
 // container never exhausts memory and no implementation pays for a drain.
 
 const (
-	// arenaOps is how many ops one goroutine runs before replacing the arena.
+	// arenaOps is how many ops a single goroutine runs before replacing the arena.
 	arenaOps = 4096
 	// bulkSize is the AddRange benchmark's per-operation batch length.
 	bulkSize = 64
@@ -131,7 +131,7 @@ func (c *chanBag) length() int {
 	return len(c.ch)
 }
 
-// impl names one implementation of a workload.
+// impl names a single implementation of a workload.
 type impl struct {
 	name string
 	// run gets the goroutine count, so a bounded impl can size its buffer.
@@ -167,7 +167,7 @@ func newArena[C any](build func() *C) *arena[C] {
 }
 
 // replace swaps in a fresh container, but only if old is still current. The
-// identity check keeps a burst of callers to one allocation.
+// identity check keeps a burst of callers to a single allocation.
 func (a *arena[C]) replace(old *C) {
 	a.mu.Lock()
 	if a.cur.Load() == old {
@@ -198,7 +198,7 @@ func addLoop[C any](b *testing.B, build func() *C, add func(*C, int)) {
 
 // takeLoop measures a take-only workload against a prefilled arena. A
 // container never gives more than it got, so a take that finds it empty puts
-// refillBatch values back. Every measured take therefore also pays for one
+// refillBatch values back.
 // add. Subtract the add benchmark to isolate the take itself.
 func takeLoop[C any](b *testing.B, build func() *C, take func(*C) (int, bool), add func(*C, int)) {
 	a := newArena(build)
@@ -220,10 +220,9 @@ func takeLoop[C any](b *testing.B, build func() *C, take func(*C) (int, bool), a
 	})
 }
 
-// mixedLoop measures one add plus one take per operation. That workload holds
+// mixedLoop measures a single add plus a single take per operation. That workload holds
 // the container at a steady size, which is what a bag is built for. The
 // container starts with steady values, so the take reads a populated
-// container and not an empty one.
 func mixedLoop[C any](b *testing.B, build func() *C, add func(*C, int), take func(*C) (int, bool)) {
 	a := newArena(build)
 	b.ResetTimer()
@@ -266,7 +265,7 @@ func BenchmarkCompareAddParallel(b *testing.B) {
 			addLoop(b, func() *mutexBag { return newMutexBag(2*arenaOps*g, 0) }, (*mutexBag).add)
 		}},
 		// The channel gets room for a whole arena generation, so a send never
-		// fails inside one. A full buffer would measure the failure path.
+		// A full buffer would measure the failure path.
 		impl{"chan", func(b *testing.B, g int) {
 			addLoop(b, func() *chanBag { return newChanBag(2*arenaOps*g, 0) }, (*chanBag).add)
 		}},
@@ -312,7 +311,7 @@ func BenchmarkCompareAddTakeParallel(b *testing.B) {
 // ---------- bulk add ----------
 
 // BenchmarkCompareAddRangeParallel adds a batch per operation. Bag.AddRange
-// links the whole batch with one compare-and-swap. The other two run a loop.
+// links the whole batch with a single compare-and-swap. The other run a loop.
 func BenchmarkCompareAddRangeParallel(b *testing.B) {
 	batch := make([]int, bulkSize)
 	for i := range batch {
@@ -334,7 +333,7 @@ func BenchmarkCompareAddRangeParallel(b *testing.B) {
 }
 
 // bulkLoop is addLoop for a batch. It replaces the arena bulkSize times more
-// often, because one operation adds bulkSize values.
+// often, because a single operation adds bulkSize values.
 func bulkLoop[C any](b *testing.B, build func() *C, addBatch func(*C)) {
 	a := newArena(build)
 	b.ResetTimer()
@@ -370,9 +369,9 @@ func BenchmarkCompareLenParallel(b *testing.B) {
 	)
 }
 
-// ---------- one goroutine ----------
+// ---------- a single goroutine ----------
 
-// serial runs one implementation without b.RunParallel.
+// serial runs a single implementation without b.RunParallel.
 func serial(b *testing.B, impls ...impl) {
 	b.Helper()
 	for _, im := range impls {

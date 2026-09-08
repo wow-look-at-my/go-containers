@@ -1,262 +1,209 @@
-// Package variant provides Variant2, Variant3 and Variant4: a value that
-// holds exactly one of a fixed set of types. It is the tagged union Go has no
-// syntax for, and it replaces a bare any plus a type switch over types the
-// reader has to go and find.
+// Package variant provides Variant, a value that holds a value of any type
+// and remembers which type it is. It is the tagged union Go has no syntax for.
+//
+// The alternatives are variadic. There is no numbered family of types, because
+// Go has no variadic type parameter and such a family caps the alternatives at
+// whatever arity somebody bothered to write. The alternatives appear instead
+// where a caller reads the value back, as the variadic handler list of Switch
+// and Match.
 package variant
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
-// variant is the tag and the payload that every arity shares. The slot is
-// 1-based, so the zero value is an empty variant.
+// Variant holds a value of any type, or nothing at all. An unset Variant is
+// empty and ready to use.
 //
-// The payload is an any, so a value larger than a pointer word is boxed on the
-// way in. A per-arity struct with one typed field per alternative would skip
-// that, at the price of three near-identical implementations and a value as
-// wide as all of its alternatives at once.
-type variant struct {
-	slot int8
-	val  any
+// The value is stored in an any, so a value wider than a pointer word is boxed
+// on the way in. That box is what buys the variadic alternatives.
+type Variant struct {
+	val     any
+	present bool
 }
 
-// get returns the payload as T when the wanted slot is the one that holds the
-// value. The assertion cannot fail: only the New and Set functions write a
-// slot, and each writes the type that belongs to it.
-func get[T any](v variant, want int8) (T, bool) {
-	if v.slot != want {
+// Of returns a Variant holding value. A nil value is still a held value: the
+// Variant reports present, and only Empty and Clear make it empty again.
+func Of(value any) Variant {
+	return Variant{val: value, present: true}
+}
+
+// Empty returns an empty Variant. It is the unset Variant, named.
+func Empty() Variant {
+	return Variant{}
+}
+
+// Get returns the held value as T, and reports whether the Variant holds a T.
+// It is a type assertion, so it costs no reflection.
+func Get[T any](v Variant) (T, bool) {
+	if !v.present {
 		var zero T
 		return zero, false
 	}
-	return v.val.(T), true
+	t, ok := v.val.(T)
+	return t, ok
 }
 
-// Index returns the 1-based slot that holds the value: 1 for A, 2 for B, and
-// so on. An empty variant returns 0.
-func (v variant) Index() int {
-	return int(v.slot)
+// Is reports whether the Variant holds a T.
+func Is[T any](v Variant) bool {
+	_, ok := Get[T](v)
+	return ok
 }
 
-// IsEmpty reports whether the variant holds no value at all.
-func (v variant) IsEmpty() bool {
-	return v.slot == 0
+// MustGet returns the held value as T and panics when the Variant holds
+// something else.
+func MustGet[T any](v Variant) T {
+	t, ok := Get[T](v)
+	if !ok {
+		panic(fmt.Sprintf("variant: holds %s, not %s", v.TypeName(), reflect.TypeFor[T]()))
+	}
+	return t
 }
 
-// Value returns the held value as an any, whichever slot holds it, or nil when
-// the variant is empty. Use the typed accessors to learn which type it is.
-func (v variant) Value() any {
+// Value returns the held value as an any, or nil when the Variant is empty.
+func (v Variant) Value() any {
 	return v.val
 }
 
-// Clear empties the variant. It drops the payload, so a pointer the variant
-// held can be collected.
-func (v *variant) Clear() {
-	v.slot, v.val = 0, nil
+// IsPresent reports whether the Variant holds a value.
+func (v Variant) IsPresent() bool {
+	return v.present
 }
 
-// String returns a human-readable representation of the variant.
-func (v variant) String() string {
-	if v.slot == 0 {
+// IsEmpty reports whether the Variant holds nothing.
+func (v Variant) IsEmpty() bool {
+	return !v.present
+}
+
+// Type returns the dynamic type of the held value. It returns nil for an empty
+// Variant, and also for a held nil, which has no dynamic type to report.
+func (v Variant) Type() reflect.Type {
+	return reflect.TypeOf(v.val)
+}
+
+// TypeName returns the name of the held type, for a message a person reads.
+func (v Variant) TypeName() string {
+	if !v.present {
+		return "<empty>"
+	}
+	if t := v.Type(); t != nil {
+		return t.String()
+	}
+	return "<nil>"
+}
+
+// Set stores value, replacing whatever the Variant held.
+func (v *Variant) Set(value any) {
+	v.val, v.present = value, true
+}
+
+// Clear empties the Variant. It drops the held value, so a pointer the Variant
+// held can be collected.
+func (v *Variant) Clear() {
+	v.val, v.present = nil, false
+}
+
+// String returns a human-readable representation of the Variant.
+func (v Variant) String() string {
+	if !v.present {
 		return "<empty>"
 	}
 	return fmt.Sprintf("%v", v.val)
 }
 
-// ---------- two alternatives ----------
-
-// Variant2 holds a value of type A or a value of type B. The zero value is
-// empty.
-type Variant2[A, B any] struct{ variant }
-
-// New2A returns a Variant2 holding a. Both type arguments must be written out,
-// because only A can be inferred from the argument.
-func New2A[A, B any](a A) Variant2[A, B] { return Variant2[A, B]{variant{slot: 1, val: a}} }
-
-// New2B returns a Variant2 holding b.
-func New2B[A, B any](b B) Variant2[A, B] { return Variant2[A, B]{variant{slot: 2, val: b}} }
-
-// A returns the value and true when the variant holds an A.
-func (v Variant2[A, B]) A() (A, bool) { return get[A](v.variant, 1) }
-
-// B returns the value and true when the variant holds a B.
-func (v Variant2[A, B]) B() (B, bool) { return get[B](v.variant, 2) }
-
-// SetA stores a, replacing whatever the variant held.
-func (v *Variant2[A, B]) SetA(a A) { v.variant = variant{slot: 1, val: a} }
-
-// SetB stores b, replacing whatever the variant held.
-func (v *Variant2[A, B]) SetB(b B) { v.variant = variant{slot: 2, val: b} }
-
-// Switch calls the handler for the slot that holds the value. An empty
-// variant calls nothing, and so does a nil handler for the held slot, which is
-// what lets a caller handle one alternative and ignore the rest.
-func (v Variant2[A, B]) Switch(onA func(A), onB func(B)) {
-	switch v.slot {
-	case 1:
-		call(onA, v.val)
-	case 2:
-		call(onB, v.val)
+// Switch calls the handler that accepts the held value and reports whether any
+// handler ran. Each handler is a func(T) taking a parameter and returning
+// nothing. The handlers are tried in the order given, and the earliest whose
+// parameter type accepts the held value wins. A func(any) accepts anything, so
+// a handler written that way and placed at the end is the default case.
+//
+// An empty Variant runs nothing and reports false, and so does a value no
+// handler accepts. Reflection picks the handler, so Switch costs more than the
+// type switch a caller writes by hand for a fixed set of alternatives. Get is
+// the cheap path when the expected type is known.
+//
+// Switch panics on a handler that is not a func of a parameter returning
+// nothing, because that is a mistake in the call rather than in the data.
+func (v Variant) Switch(handlers ...any) bool {
+	if !v.present {
+		return false
 	}
+	for i, h := range handlers {
+		fn := reflect.ValueOf(h)
+		t := handlerType(fn, i, 0)
+		arg, ok := argFor(v.val, t.In(0))
+		if !ok {
+			continue
+		}
+		fn.Call([]reflect.Value{arg})
+		return true
+	}
+	return false
 }
 
-// Match2 returns the result of the handler for the slot that holds the value.
-// An empty variant returns the zero R and false. Every handler must be
-// non-nil.
-func Match2[A, B, R any](v Variant2[A, B], onA func(A) R, onB func(B) R) (R, bool) {
-	switch v.slot {
-	case 1:
-		return onA(v.val.(A)), true
-	case 2:
-		return onB(v.val.(B)), true
-	}
+// Match returns the result of the handler that accepts the held value, and
+// reports whether any handler ran. Each handler is a func(T) R, under the
+// matching rules of Switch.
+//
+// It is a function rather than a method because a Go method cannot introduce
+// the result type parameter.
+func Match[R any](v Variant, handlers ...any) (R, bool) {
 	var zero R
+	if !v.present {
+		return zero, false
+	}
+	want := reflect.TypeFor[R]()
+	for i, h := range handlers {
+		fn := reflect.ValueOf(h)
+		t := handlerType(fn, i, 1)
+		if !t.Out(0).AssignableTo(want) {
+			panic(fmt.Sprintf("variant: Match handler at index %d returns %s, want %s", i, t.Out(0), want))
+		}
+		arg, ok := argFor(v.val, t.In(0))
+		if !ok {
+			continue
+		}
+		out := fn.Call([]reflect.Value{arg})[0]
+		return out.Interface().(R), true
+	}
 	return zero, false
 }
 
-// ---------- three alternatives ----------
-
-// Variant3 holds a value of type A, B or C. The zero value is empty.
-type Variant3[A, B, C any] struct{ variant }
-
-// New3A returns a Variant3 holding a.
-func New3A[A, B, C any](a A) Variant3[A, B, C] { return Variant3[A, B, C]{variant{slot: 1, val: a}} }
-
-// New3B returns a Variant3 holding b.
-func New3B[A, B, C any](b B) Variant3[A, B, C] { return Variant3[A, B, C]{variant{slot: 2, val: b}} }
-
-// New3C returns a Variant3 holding c.
-func New3C[A, B, C any](c C) Variant3[A, B, C] { return Variant3[A, B, C]{variant{slot: 3, val: c}} }
-
-// A returns the value and true when the variant holds an A.
-func (v Variant3[A, B, C]) A() (A, bool) { return get[A](v.variant, 1) }
-
-// B returns the value and true when the variant holds a B.
-func (v Variant3[A, B, C]) B() (B, bool) { return get[B](v.variant, 2) }
-
-// C returns the value and true when the variant holds a C.
-func (v Variant3[A, B, C]) C() (C, bool) { return get[C](v.variant, 3) }
-
-// SetA stores a, replacing whatever the variant held.
-func (v *Variant3[A, B, C]) SetA(a A) { v.variant = variant{slot: 1, val: a} }
-
-// SetB stores b, replacing whatever the variant held.
-func (v *Variant3[A, B, C]) SetB(b B) { v.variant = variant{slot: 2, val: b} }
-
-// SetC stores c, replacing whatever the variant held.
-func (v *Variant3[A, B, C]) SetC(c C) { v.variant = variant{slot: 3, val: c} }
-
-// Switch calls the handler for the slot that holds the value, under the same
-// rules as Variant2.Switch.
-func (v Variant3[A, B, C]) Switch(onA func(A), onB func(B), onC func(C)) {
-	switch v.slot {
-	case 1:
-		call(onA, v.val)
-	case 2:
-		call(onB, v.val)
-	case 3:
-		call(onC, v.val)
+// handlerType checks the shape of a handler and returns its type. results is
+// how many values the handler must return.
+func handlerType(fn reflect.Value, index, results int) reflect.Type {
+	if !fn.IsValid() || fn.Kind() != reflect.Func {
+		panic(fmt.Sprintf("variant: handler at index %d is %s, want a function", index, kindOf(fn)))
 	}
-}
-
-// Match3 returns the result of the handler for the slot that holds the value,
-// under the same rules as Match2.
-func Match3[A, B, C, R any](v Variant3[A, B, C], onA func(A) R, onB func(B) R, onC func(C) R) (R, bool) {
-	switch v.slot {
-	case 1:
-		return onA(v.val.(A)), true
-	case 2:
-		return onB(v.val.(B)), true
-	case 3:
-		return onC(v.val.(C)), true
+	t := fn.Type()
+	if t.NumIn() != 1 || t.IsVariadic() || t.NumOut() != results {
+		panic(fmt.Sprintf("variant: handler at index %d is %s, want a function of a parameter returning %d result(s)", index, t, results))
 	}
-	var zero R
-	return zero, false
+	return t
 }
 
-// ---------- four alternatives ----------
-
-// Variant4 holds a value of type A, B, C or D. The zero value is empty. Past
-// four alternatives, a struct with named fields reads better than a position.
-type Variant4[A, B, C, D any] struct{ variant }
-
-// New4A returns a Variant4 holding a.
-func New4A[A, B, C, D any](a A) Variant4[A, B, C, D] {
-	return Variant4[A, B, C, D]{variant{slot: 1, val: a}}
-}
-
-// New4B returns a Variant4 holding b.
-func New4B[A, B, C, D any](b B) Variant4[A, B, C, D] {
-	return Variant4[A, B, C, D]{variant{slot: 2, val: b}}
-}
-
-// New4C returns a Variant4 holding c.
-func New4C[A, B, C, D any](c C) Variant4[A, B, C, D] {
-	return Variant4[A, B, C, D]{variant{slot: 3, val: c}}
-}
-
-// New4D returns a Variant4 holding d.
-func New4D[A, B, C, D any](d D) Variant4[A, B, C, D] {
-	return Variant4[A, B, C, D]{variant{slot: 4, val: d}}
-}
-
-// A returns the value and true when the variant holds an A.
-func (v Variant4[A, B, C, D]) A() (A, bool) { return get[A](v.variant, 1) }
-
-// B returns the value and true when the variant holds a B.
-func (v Variant4[A, B, C, D]) B() (B, bool) { return get[B](v.variant, 2) }
-
-// C returns the value and true when the variant holds a C.
-func (v Variant4[A, B, C, D]) C() (C, bool) { return get[C](v.variant, 3) }
-
-// D returns the value and true when the variant holds a D.
-func (v Variant4[A, B, C, D]) D() (D, bool) { return get[D](v.variant, 4) }
-
-// SetA stores a, replacing whatever the variant held.
-func (v *Variant4[A, B, C, D]) SetA(a A) { v.variant = variant{slot: 1, val: a} }
-
-// SetB stores b, replacing whatever the variant held.
-func (v *Variant4[A, B, C, D]) SetB(b B) { v.variant = variant{slot: 2, val: b} }
-
-// SetC stores c, replacing whatever the variant held.
-func (v *Variant4[A, B, C, D]) SetC(c C) { v.variant = variant{slot: 3, val: c} }
-
-// SetD stores d, replacing whatever the variant held.
-func (v *Variant4[A, B, C, D]) SetD(d D) { v.variant = variant{slot: 4, val: d} }
-
-// Switch calls the handler for the slot that holds the value, under the same
-// rules as Variant2.Switch.
-func (v Variant4[A, B, C, D]) Switch(onA func(A), onB func(B), onC func(C), onD func(D)) {
-	switch v.slot {
-	case 1:
-		call(onA, v.val)
-	case 2:
-		call(onB, v.val)
-	case 3:
-		call(onC, v.val)
-	case 4:
-		call(onD, v.val)
+// kindOf describes a handler that is not a function, including a nil handler.
+func kindOf(fn reflect.Value) string {
+	if !fn.IsValid() {
+		return "nil"
 	}
+	return fn.Type().String()
 }
 
-// Match4 returns the result of the handler for the slot that holds the value,
-// under the same rules as Match2.
-func Match4[A, B, C, D, R any](v Variant4[A, B, C, D], onA func(A) R, onB func(B) R, onC func(C) R, onD func(D) R) (R, bool) {
-	switch v.slot {
-	case 1:
-		return onA(v.val.(A)), true
-	case 2:
-		return onB(v.val.(B)), true
-	case 3:
-		return onC(v.val.(C)), true
-	case 4:
-		return onD(v.val.(D)), true
+// argFor returns the held value as the handler's parameter type, and reports
+// whether that type accepts it. A held nil goes only to a handler that takes
+// an interface.
+func argFor(val any, param reflect.Type) (reflect.Value, bool) {
+	if val == nil {
+		if param.Kind() != reflect.Interface {
+			return reflect.Value{}, false
+		}
+		return reflect.Zero(param), true
 	}
-	var zero R
-	return zero, false
-}
-
-// call runs handler on the payload, and does nothing when the caller left that
-// slot's handler out.
-func call[T any](handler func(T), val any) {
-	if handler != nil {
-		handler(val.(T))
+	rv := reflect.ValueOf(val)
+	if !rv.Type().AssignableTo(param) {
+		return reflect.Value{}, false
 	}
+	return rv, true
 }

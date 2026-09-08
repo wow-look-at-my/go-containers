@@ -1,6 +1,6 @@
 // Package optional provides Optional, a value that is either present or
 // absent. It replaces a *T used only to mean "maybe", and it carries the
-// comma-ok result of a lookup as one value.
+// comma-ok result of a lookup as a value.
 package optional
 
 import (
@@ -8,11 +8,11 @@ import (
 	"iter"
 )
 
-// Optional holds either one value of type T or nothing at all.
-// The zero value is empty and ready to use.
+// Optional holds a value of type T, or nothing at all. An unset Optional is
+// empty and ready to use.
 //
 // Optional stores the value inline, so an empty Optional[T] is as wide as a T
-// plus a bool. A *T is one word instead, at the cost of a heap value the
+// plus a bool. A *T is a pointer word instead, at the cost of a heap value the
 // reader must check on every use.
 type Optional[T any] struct {
 	value   T
@@ -24,13 +24,13 @@ func Of[T any](value T) Optional[T] {
 	return Optional[T]{value: value, present: true}
 }
 
-// Empty returns an empty Optional. It is the zero value, named.
+// Empty returns an empty Optional. It is the unset Optional, named.
 func Empty[T any]() Optional[T] {
 	return Optional[T]{}
 }
 
 // OfOk turns a comma-ok result into an Optional, so a lookup can be passed
-// along as one value: optional.OfOk(m.Load(key)).
+// along as a value: optional.OfOk(m.Load(key)).
 func OfOk[T any](value T, ok bool) Optional[T] {
 	if !ok {
 		return Optional[T]{}
@@ -48,7 +48,7 @@ func OfPtr[T any](p *T) Optional[T] {
 }
 
 // Get returns the value and reports whether it is present. An absent value
-// reads as the zero value of T.
+// reads as the default T.
 func (o Optional[T]) Get() (T, bool) {
 	return o.value, o.present
 }
@@ -95,7 +95,7 @@ func (o Optional[T]) OrElseGet(fallback func() T) T {
 	return o.value
 }
 
-// OrZero returns the value, or the zero value of T when no value is present.
+// OrZero returns the value, or the default T when no value is present.
 func (o Optional[T]) OrZero() T {
 	return o.value
 }
@@ -132,16 +132,16 @@ func (o Optional[T]) Filter(keep func(T) bool) Optional[T] {
 	return o
 }
 
-// If calls do with the value when one is present, and does nothing otherwise.
+// If calls do with the value when a value is present, and does nothing otherwise.
 func (o Optional[T]) If(do func(T)) {
 	if o.present {
 		do(o.value)
 	}
 }
 
-// All returns an iterator over the value: one element when present, none when
-// empty. It is what lets an Optional appear in a range loop beside a
-// collection.
+// All returns an iterator over the value: it yields the value when present, and
+// nothing when empty. It is what lets an Optional appear in a range loop beside
+// a collection.
 func (o Optional[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		if o.present {
@@ -171,7 +171,7 @@ func (o Optional[T]) String() string {
 // Optional maps to an empty Optional and f never runs.
 //
 // It is a function rather than a method because a Go method cannot introduce
-// the second type parameter.
+// the result type parameter.
 func Map[T, U any](o Optional[T], f func(T) U) Optional[U] {
 	if !o.present {
 		return Optional[U]{}

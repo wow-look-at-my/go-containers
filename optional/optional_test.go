@@ -28,7 +28,7 @@ func TestOfAndGet(t *testing.T) {
 	assert.Equal(t, "hello", o.MustGet())
 }
 
-// A present zero value is present. That is the whole reason for the flag: a
+// A present default value is present. That is the whole reason for the flag: a
 // value cannot report its own absence.
 func TestPresentZeroValue(t *testing.T) {
 	o := Of(0)
@@ -139,7 +139,7 @@ func TestEqual(t *testing.T) {
 	assert.True(t, Equal(Of(1), Of(1)))
 	assert.False(t, Equal(Of(1), Of(2)))
 	assert.True(t, Equal(Empty[int](), Empty[int]()))
-	assert.False(t, Equal(Of(0), Empty[int]()), "a present zero is not absent")
+	assert.False(t, Equal(Of(0), Empty[int]()), "a present default is not absent")
 }
 
 func TestString(t *testing.T) {

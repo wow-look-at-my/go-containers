@@ -3,7 +3,7 @@ package optional
 import "encoding/json"
 
 // nullLiteral is what an empty Optional marshals to, and what unmarshals back
-// to one.
+// to an empty Optional.
 var nullLiteral = []byte("null")
 
 // MarshalJSON implements the json.Marshaler interface. A present value
@@ -21,7 +21,7 @@ func (o Optional[T]) MarshalJSON() ([]byte, error) {
 // whatever the Optional held.
 //
 // A field that is absent from the object never reaches this method, so it
-// keeps the empty zero value.
+// stays empty.
 func (o *Optional[T]) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		o.Clear()

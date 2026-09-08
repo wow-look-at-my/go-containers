@@ -14,8 +14,7 @@ import (
 )
 
 // Variant holds a value of any type, or nothing. An unset Variant is empty and
-// ready to use. The value rides an any, and that box buys the variadic
-// alternatives.
+// ready to use. The value rides an any: that box buys the variadic alternatives.
 type Variant struct {
 	val     any
 	present bool
@@ -110,10 +109,9 @@ func (v Variant) String() string {
 	return fmt.Sprintf("%v", v.val)
 }
 
-// Switch runs the earliest func(T) handler whose parameter accepts the held
-// value, and reports whether any ran. A trailing func(any) is the default case.
-// Reflection picks it, so Get is the cheap path for a known type. A handler of
-// another shape panics: that is a mistake in the call, not in the data.
+// Switch runs the earliest func(T) handler that accepts the held value, and
+// reports whether any ran. A trailing func(any) is the default. Reflection
+// picks it, so Get is the cheap path for a type the caller knows.
 func (v Variant) Switch(handlers ...any) bool {
 	if !v.present {
 		return false
@@ -160,7 +158,8 @@ func Match[R any](v Variant, handlers ...any) (R, bool) {
 }
 
 // handlerType checks the shape of a handler and returns its type. results is
-// how many values the handler must return.
+// how many values the handler must return. A handler of another shape panics:
+// that is a mistake in the call, not in the data.
 func handlerType(fn reflect.Value, index, results int) reflect.Type {
 	if !fn.IsValid() || fn.Kind() != reflect.Func {
 		panic(fmt.Sprintf("variant: handler at index %d is %s, want a function", index, kindOf(fn)))

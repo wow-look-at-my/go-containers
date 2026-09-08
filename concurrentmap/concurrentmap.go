@@ -287,7 +287,7 @@ func (m *Map[K, V]) IsEmpty() bool {
 	return true
 }
 
-// Clear removes every key from the Map. Clear locks a single shard at a time, so a
+// Clear removes every key from the Map. It locks a single shard at a time, so a
 // concurrent writer can add a key to a shard Clear already emptied.
 func (m *Map[K, V]) Clear() {
 	m.mustInit()

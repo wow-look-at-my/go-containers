@@ -9,7 +9,7 @@ import (
 )
 
 // Optional holds a value of type T, or nothing. An unset Optional is empty and
-// ready to use. The value sits inline, so it is as wide as a T plus a bool.
+// ready to use. The value sits inline: a T plus a bool.
 type Optional[T any] struct {
 	value   T
 	present bool
@@ -159,8 +159,8 @@ func (o Optional[T]) String() string {
 	return fmt.Sprintf("%v", o.value)
 }
 
-// Map applies f to the value, and an empty Optional maps to an empty one with f
-// never running. It is a function because a method cannot add a type parameter.
+// Map applies f to the value. An empty Optional maps to an empty Optional, and f
+// never runs. It is a function because a method cannot add a type parameter.
 func Map[T, U any](o Optional[T], f func(T) U) Optional[U] {
 	if !o.present {
 		return Optional[U]{}

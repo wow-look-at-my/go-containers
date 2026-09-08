@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// waiter is a single parked goroutine; ready closes on grant or complete. Each
-// park allocates fresh -- pooling would break testing/synctest.
+// waiter is a parked goroutine; ready closes on grant or complete. Each park
+// allocates fresh -- pooling would break testing/synctest.
 type waiter struct {
 	ready   chan struct{}
 	granted bool

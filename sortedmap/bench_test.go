@@ -342,7 +342,7 @@ func BenchmarkCompareKeys(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareRange walks a 100-key window out of the middle. The map cannot do
+// BenchmarkCompareRange walks a key window out of the middle. The map cannot do
 // this without ordering everything which is the whole gap.
 func BenchmarkCompareRange(b *testing.B) {
 	eachSize(b,

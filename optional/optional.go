@@ -8,12 +8,8 @@ import (
 	"iter"
 )
 
-// Optional holds a value of type T, or nothing at all. An unset Optional is
-// empty and ready to use.
-//
-// Optional stores the value inline, so an empty Optional[T] is as wide as a T
-// plus a bool. A *T is a pointer word instead, at the cost of a heap value the
-// reader must check on every use.
+// Optional holds a value of type T, or nothing. An unset Optional is empty and
+// ready to use. The value sits inline, so it is as wide as a T plus a bool.
 type Optional[T any] struct {
 	value   T
 	present bool
@@ -71,9 +67,7 @@ func (o Optional[T]) IsEmpty() bool {
 	return !o.present
 }
 
-// IsZero reports whether the Optional is empty. It is what the encoding/json
-// `omitzero` option calls, so an empty Optional can leave its field out of the
-// output entirely.
+// IsZero reports whether the Optional is empty, which is what `omitzero` calls.
 func (o Optional[T]) IsZero() bool {
 	return !o.present
 }
@@ -100,9 +94,8 @@ func (o Optional[T]) OrZero() T {
 	return o.value
 }
 
-// Ptr returns a pointer to a copy of the value, or nil when no value is
-// present. The copy is what keeps a caller from writing through the pointer
-// into the Optional.
+// Ptr returns a pointer to a COPY of the value, or nil when it is absent: a
+// caller cannot write through it into the Optional.
 func (o Optional[T]) Ptr() *T {
 	if !o.present {
 		return nil
@@ -139,9 +132,8 @@ func (o Optional[T]) If(do func(T)) {
 	}
 }
 
-// All returns an iterator over the value: it yields the value when present, and
-// nothing when empty. It is what lets an Optional appear in a range loop beside
-// a collection.
+// All iterates the value when present and nothing when empty, so an Optional
+// ranges like a collection.
 func (o Optional[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		if o.present {
@@ -167,11 +159,8 @@ func (o Optional[T]) String() string {
 	return fmt.Sprintf("%v", o.value)
 }
 
-// Map applies f to the value and returns the result as an Optional. An empty
-// Optional maps to an empty Optional and f never runs.
-//
-// It is a function rather than a method because a Go method cannot introduce
-// the result type parameter.
+// Map applies f to the value, and an empty Optional maps to an empty one with f
+// never running. It is a function because a method cannot add a type parameter.
 func Map[T, U any](o Optional[T], f func(T) U) Optional[U] {
 	if !o.present {
 		return Optional[U]{}

@@ -122,8 +122,7 @@ func TestSwitchDefaultHandler(t *testing.T) {
 	))
 	assert.Equal(t, "default", seen)
 
-	// The earliest accepting handler wins, so the default never shadows a
-	// specific handler placed ahead of it.
+	// The earliest accepting handler wins over the default behind it.
 	seen = ""
 	require.True(t, Of(7).Switch(
 		func(int) { seen = "int" },

@@ -13,18 +13,16 @@ import (
 	"reflect"
 )
 
-// Variant holds a value of any type, or nothing at all. An unset Variant is
-// empty and ready to use.
-//
-// The value is stored in an any, so a value wider than a pointer word is boxed
-// on the way in. That box is what buys the variadic alternatives.
+// Variant holds a value of any type, or nothing. An unset Variant is empty and
+// ready to use. The value rides an any, and that box buys the variadic
+// alternatives.
 type Variant struct {
 	val     any
 	present bool
 }
 
-// Of returns a Variant holding value. A nil value is still a held value: the
-// Variant reports present, and only Empty and Clear make it empty again.
+// Of returns a Variant holding value. A nil value is still held: only Empty and
+// Clear make a Variant empty.
 func Of(value any) Variant {
 	return Variant{val: value, present: true}
 }
@@ -76,8 +74,8 @@ func (v Variant) IsEmpty() bool {
 	return !v.present
 }
 
-// Type returns the dynamic type of the held value. It returns nil for an empty
-// Variant, and also for a held nil, which has no dynamic type to report.
+// Type returns the dynamic type of the held value, and nil for an empty Variant
+// or a held nil.
 func (v Variant) Type() reflect.Type {
 	return reflect.TypeOf(v.val)
 }
@@ -112,19 +110,10 @@ func (v Variant) String() string {
 	return fmt.Sprintf("%v", v.val)
 }
 
-// Switch calls the handler that accepts the held value and reports whether any
-// handler ran. Each handler is a func(T) taking a parameter and returning
-// nothing. The handlers are tried in the order given, and the earliest whose
-// parameter type accepts the held value wins. A func(any) accepts anything, so
-// a handler written that way and placed at the end is the default case.
-//
-// An empty Variant runs nothing and reports false, and so does a value no
-// handler accepts. Reflection picks the handler, so Switch costs more than the
-// type switch a caller writes by hand for a fixed set of alternatives. Get is
-// the cheap path when the expected type is known.
-//
-// Switch panics on a handler that is not a func of a parameter returning
-// nothing, because that is a mistake in the call rather than in the data.
+// Switch runs the earliest func(T) handler whose parameter accepts the held
+// value, and reports whether any ran. A trailing func(any) is the default case.
+// Reflection picks it, so Get is the cheap path for a known type. A handler of
+// another shape panics: that is a mistake in the call, not in the data.
 func (v Variant) Switch(handlers ...any) bool {
 	if !v.present {
 		return false

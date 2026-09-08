@@ -14,7 +14,7 @@ import (
 )
 
 // Variant holds a value of any type, or nothing. An unset Variant is empty,
-// ready to use. Holding an any is what buys the variadic alternatives.
+// ready to use. An any is what buys the variadic alternatives.
 type Variant struct {
 	val     any
 	present bool

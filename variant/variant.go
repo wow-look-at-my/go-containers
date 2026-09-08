@@ -13,8 +13,8 @@ import (
 	"reflect"
 )
 
-// Variant holds a value of any type, or nothing. An unset Variant is empty and
-// ready to use. The value rides an any: that box buys the variadic alternatives.
+// Variant holds a value of any type, or nothing. An unset Variant is empty,
+// ready to use. Holding an any is what buys the variadic alternatives.
 type Variant struct {
 	val     any
 	present bool

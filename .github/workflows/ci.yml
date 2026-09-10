@@ -19,9 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: wow-look-at-my/go-toolchain@master
         with:
-          # The comparison suite measures every collection against what a caller
-          # writes instead, which runs past the default budget and is killed
-          # mid-benchmark, after the tests have already passed.
+          # The comparison suite outruns the default budget and is killed mid-benchmark.
           timeout: '20'
 
   # Runs the tests under -race: every collection here is concurrent, so a green build must mean tests ran race-checked.

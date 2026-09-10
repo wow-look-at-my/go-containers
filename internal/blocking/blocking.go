@@ -30,9 +30,9 @@ type Store[T any] interface {
 // Core adds bounding, blocking and completion to a Store.
 type Core[T any] struct {
 	store Store[T]
-	// items holds one permit per removable element.
+	// items holds a single permit per removable element.
 	items sema
-	// free holds one permit per empty slot; unused when unbounded.
+	// free holds a single permit per empty slot; unused when unbounded.
 	free     sema
 	capacity int
 
@@ -41,7 +41,7 @@ type Core[T any] struct {
 	completed  atomic.Bool
 }
 
-// NewCore wraps store. A capacity of Unbounded, or of any value below zero,
+// NewCore wraps store. A capacity of Unbounded, or of any value below empty,
 // means that an add never waits.
 func NewCore[T any](store Store[T], capacity int) *Core[T] {
 	c := &Core[T]{store: store, capacity: capacity}
@@ -78,7 +78,7 @@ func (c *Core[T]) IsCompleted() bool {
 }
 
 // CompleteAdding marks the collection complete and wakes every blocked
-// goroutine; safe to call more than once. An add already in flight finishes.
+// goroutine; safe to call more than a single time. An add already in flight finishes.
 func (c *Core[T]) CompleteAdding() {
 	c.completeMu.Lock()
 	already := c.completed.Swap(true)
@@ -90,7 +90,7 @@ func (c *Core[T]) CompleteAdding() {
 	c.free.complete()
 }
 
-// add puts value into the store and hands one permit to a taker. The caller
+// add puts value into the store and hands a single permit to a taker. The caller
 // owns a free permit when the collection is bounded.
 func (c *Core[T]) add(value T) error {
 	c.completeMu.RLock()
@@ -119,7 +119,7 @@ func (c *Core[T]) releaseFree() {
 // collection is full.
 //
 // It returns ErrCompleted after CompleteAdding, and ctx.Err() when ctx ends
-// first.
+// earliest.
 func (c *Core[T]) Add(ctx context.Context, value T) error {
 	if c.capacity > 0 && !c.free.acquire(ctx) {
 		if err := ctx.Err(); err != nil {
@@ -139,7 +139,7 @@ func (c *Core[T]) TryAdd(value T) bool {
 	return c.add(value) == nil
 }
 
-// take removes one element the caller's permit guarantees; it retries while
+// take removes a single element the caller's permit guarantees; it retries while
 // another goroutine is still mid-add on it.
 func (c *Core[T]) take() T {
 	for {
@@ -151,11 +151,11 @@ func (c *Core[T]) take() T {
 	}
 }
 
-// Take removes and returns one element, and waits for one when the collection
+// Take removes and returns a single element, and waits for a single when the collection
 // is empty.
 //
 // It returns ErrCompleted when the collection is complete for adds and empty,
-// and ctx.Err() when ctx ends first. A take that already received its element
+// and ctx.Err() when ctx ends earliest. A take that already received its element
 // returns that element, even when ctx ended at the same moment.
 func (c *Core[T]) Take(ctx context.Context) (T, error) {
 	if c.items.acquire(ctx) {
@@ -173,7 +173,7 @@ func (c *Core[T]) Take(ctx context.Context) (T, error) {
 	return zero, ErrCompleted
 }
 
-// TryTake removes and returns one element without any wait. It reports false
+// TryTake removes and returns a single element without any wait. It reports false
 // when the collection is empty.
 func (c *Core[T]) TryTake() (T, bool) {
 	if !c.items.tryAcquire() {

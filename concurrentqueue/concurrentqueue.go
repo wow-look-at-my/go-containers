@@ -1,6 +1,5 @@
-// Package concurrentqueue provides Queue, a lock-free first-in-first-out
-// collection for concurrent use, under .NET's ConcurrentQueue vocabulary
-// (Enqueue/TryDequeue) rather than concurrentlist's neutral one (Append/Take).
+// Package concurrentqueue provides Queue, a lock-free FIFO
+// collection for concurrent use, under.NET's ConcurrentQueue vocabulary
 package concurrentqueue
 
 import (
@@ -9,13 +8,13 @@ import (
 	"github.com/wow-look-at-my/go-containers/concurrentlist"
 )
 
-// Queue is concurrentlist.List under queue vocabulary, not a second implementation. Zero value ready to use.
+// Queue is concurrentlist.List under queue vocabulary, not another implementation. unset value ready to use.
 type Queue[T any] struct {
 	list concurrentlist.List[T]
 }
 
-// New creates an empty queue. The zero Queue is equally usable; New exists
-// for callers that want a pointer in one expression.
+// New creates an empty queue. The empty Queue is equally usable; New exists
+// for callers that want a pointer in a single expression.
 func New[T any]() *Queue[T] {
 	return &Queue[T]{}
 }
@@ -26,7 +25,7 @@ func (q *Queue[T]) Enqueue(value T) {
 }
 
 // EnqueueRange adds every value to the back of the queue, in the given
-// order, with one atomic reservation for the whole run.
+// order, with a single atomic reservation for the whole run.
 func (q *Queue[T]) EnqueueRange(values ...T) {
 	q.list.AppendRange(values...)
 }
@@ -37,13 +36,13 @@ func (q *Queue[T]) TryDequeue() (T, bool) {
 	return q.list.TryTake()
 }
 
-// TryDequeueRange removes up to len(buf) values into buf, oldest first, and
+// TryDequeueRange removes up to len(buf) values into buf, oldest and
 // returns how many it wrote.
 func (q *Queue[T]) TryDequeueRange(buf []T) int {
 	return q.list.TryTakeRange(buf)
 }
 
-// TryPeek returns the oldest value, or false when empty. Another goroutine can dequeue it first.
+// TryPeek returns the oldest value, or false when empty. Another goroutine can dequeue it earliest.
 func (q *Queue[T]) TryPeek() (T, bool) {
 	return q.list.TryPeek()
 }
@@ -65,12 +64,12 @@ func (q *Queue[T]) Clear() {
 	q.list.Clear()
 }
 
-// All iterates the values oldest first, taking none. A best-effort snapshot -- never for an exact decision.
+// All iterates the values oldest taking none. A best-effort snapshot -- never for an exact decision.
 func (q *Queue[T]) All() iter.Seq[T] {
 	return q.list.All()
 }
 
-// Values returns the values in the queue as a slice, oldest first, and
+// Values returns the values in the queue as a slice, oldest and
 // dequeues none of them. It has the same best-effort reading as All.
 func (q *Queue[T]) Values() []T {
 	return q.list.Values()

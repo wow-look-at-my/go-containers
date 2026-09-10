@@ -19,7 +19,7 @@ var (
 	sinkShared atomic.Int64
 )
 
-// mutexQueue is the first-in-first-out queue that a Go caller writes by hand.
+// mutexQueue is the FIFO queue that a Go caller writes by hand.
 type mutexQueue struct {
 	mu    sync.Mutex
 	items []int
@@ -69,7 +69,7 @@ var fillSizes = []int{100, 10000}
 // parallelism multiplies GOMAXPROCS in the contention benchmarks.
 var parallelism = []int{1, 4, 16}
 
-// eachSize runs one trio of implementations at every fill size.
+// eachSize runs a single trio of implementations at every fill size.
 func eachSize(b *testing.B, list, mutex, channel func(b *testing.B, n int)) {
 	b.Helper()
 	for _, n := range fillSizes {
@@ -81,7 +81,7 @@ func eachSize(b *testing.B, list, mutex, channel func(b *testing.B, n int)) {
 	}
 }
 
-// eachParallelism runs one trio of implementations at every goroutine count.
+// eachParallelism runs a single trio of implementations at every goroutine count.
 func eachParallelism(b *testing.B, list, mutex, channel func(b *testing.B)) {
 	b.Helper()
 	for _, p := range parallelism {
@@ -105,7 +105,7 @@ func eachParallelism(b *testing.B, list, mutex, channel func(b *testing.B)) {
 	}
 }
 
-// ---------- fill and drain, one goroutine ----------
+// ---------- fill and drain, a single goroutine ----------
 
 func BenchmarkCompareAppend(b *testing.B) {
 	eachSize(b,
@@ -140,7 +140,7 @@ func BenchmarkCompareAppend(b *testing.B) {
 
 // The take cost is this benchmark minus BenchmarkCompareAppend at the same
 // size. Measuring the drain alone needs a full collection per iteration, and
-// the timer games that build one distort the small sizes.
+// the timer games that build a single distort the small sizes.
 func BenchmarkCompareFillAndDrain(b *testing.B) {
 	eachSize(b,
 		func(b *testing.B, n int) {
@@ -180,7 +180,7 @@ func BenchmarkCompareFillAndDrain(b *testing.B) {
 
 // ---------- contention ----------
 
-// A round trip is one append and one take. It keeps the collection at a steady
+// A round trip is a single append and a single take. It keeps the collection at a steady
 // size, so the number measures the contention, not the memory that grows under
 // it.
 func BenchmarkCompareRoundTrip(b *testing.B) {
@@ -288,7 +288,7 @@ func drain(take func() bool) chan struct{} {
 
 // ---------- bulk ----------
 
-// One atomic add reserves a whole run of slots, so a bulk append should cost
+// A single atomic add reserves a whole run of slots, so a bulk append should cost
 // far less than the same number of single appends.
 func BenchmarkCompareAppendRange(b *testing.B) {
 	const batch = 64
@@ -405,7 +405,7 @@ func BenchmarkCompareValues(b *testing.B) {
 // ---------- blocking ----------
 
 // The blocking list against the Go answer to the same problem: a buffered
-// channel with one producer and one consumer.
+// channel with a single producer and a single consumer.
 func BenchmarkCompareBlockingProducerConsumer(b *testing.B) {
 	const capacity = 256
 

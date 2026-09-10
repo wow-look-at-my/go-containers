@@ -79,7 +79,7 @@ func TestShardIsCacheLineSized(t *testing.T) {
 	assert.EqualValues(t, shardBytes, unsafe.Sizeof(shard[string, []byte]{}))
 }
 
-// TestShardsAreDistinctAllocations compares addresses. Two shards hold equal
+// TestShardsAreDistinctAllocations compares addresses. shards hold equal
 // contents at the start, so a value comparison proves nothing here.
 func TestShardsAreDistinctAllocations(t *testing.T) {
 	m := New[int, int](WithConcurrency(8))
@@ -92,7 +92,7 @@ func TestShardsAreDistinctAllocations(t *testing.T) {
 	assert.Len(t, seen, 8)
 }
 
-// TestKeysSpreadOverShards proves the mask selects more than one shard.
+// TestKeysSpreadOverShards proves the mask selects more than a single shard.
 func TestKeysSpreadOverShards(t *testing.T) {
 	m := New[int, int](WithConcurrency(8))
 	for i := range 1000 {
@@ -107,7 +107,7 @@ func TestKeysSpreadOverShards(t *testing.T) {
 	assert.Equal(t, 8, used, "every shard should hold at least one of 1000 keys")
 }
 
-// ---------- the zero value ----------
+// ---------- an unset value ----------
 
 func TestZeroMapPanics(t *testing.T) {
 	var m Map[string, int]
@@ -438,7 +438,6 @@ func TestCompareAndDelete(t *testing.T) {
 	assert.False(t, m.Contains("a"))
 }
 
-// must drops the presence result of a two-result read.
 func must[V any](v V, _ bool) V {
 	return v
 }

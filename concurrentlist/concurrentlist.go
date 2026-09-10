@@ -1,13 +1,13 @@
 // Package concurrentlist provides List, a lock-free ordered collection.
 //
-// A List keeps its elements in one total order: takes return the elements in
+// A List keeps its elements in a single total order: takes return the elements in
 // the order the appends reserved them, across every goroutine. This is the
 // ordered counterpart to concurrentbag, which keeps no order at all.
 //
-// The storage is a chain of segments, and a segment is one contiguous array of
-// slots. Contiguous storage is what makes the list fast: an append reserves one
-// slot with one atomic add, and the elements of a segment share cache lines.
-// There is no mutex on any path, and no operation can block another one.
+// The storage is a chain of segments, and a segment is a single contiguous array of
+// slots.
+// slot with a single atomic add, and the elements of a segment share cache lines.
+// There is no mutex on any path, and no operation can block another.
 package concurrentlist
 
 import (
@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	// initialSegmentLen keeps an empty list cheap: small lists never grow a second segment.
+	// initialSegmentLen keeps an empty list cheap: small lists never grow another segment.
 	initialSegmentLen = 32
-	// maxSegmentLen bounds a taken element's held memory; a segment releases as one unit.
+	// maxSegmentLen bounds a taken element's held memory; a segment releases as a single unit.
 	maxSegmentLen = 4096
-	// spinsBeforeYield bounds the wait on a producer mid-reserve; it ends after one store.
+	// spinsBeforeYield bounds the wait on a producer mid-reserve; it ends after a single store.
 	spinsBeforeYield = 24
 )
 
@@ -64,8 +64,8 @@ func (s *segment[T]) filled() uint64 {
 	return n
 }
 
-// List is a lock-free, first-in-first-out collection; every method is safe
-// for concurrent use. The zero value is an empty list ready to use.
+// List is a lock-free, FIFO collection; every method is safe
+// for concurrent use. an unset value is an empty list ready to use.
 type List[T any] struct {
 	head   atomic.Pointer[segment[T]]
 	tail   atomic.Pointer[segment[T]]
@@ -73,13 +73,13 @@ type List[T any] struct {
 	initMu sync.Mutex
 }
 
-// New creates an empty list. The zero List is equally usable; New exists for
-// callers that want a pointer in one expression.
+// New creates an empty list. The empty List is equally usable; New exists for
+// callers that want a pointer in a single expression.
 func New[T any]() *List[T] {
 	return &List[T]{}
 }
 
-// tailSegment returns the segment that accepts appends, and creates the first
+// tailSegment returns the segment that accepts appends, and creates the earliest
 // segment when the list is still empty.
 func (l *List[T]) tailSegment() *segment[T] {
 	if s := l.tail.Load(); s != nil {
@@ -97,7 +97,7 @@ func (l *List[T]) tailSegment() *segment[T] {
 }
 
 // grow links a further segment after full and moves the list tail onto it.
-// Several goroutines can call this at the same time, and one of them wins.
+// Several goroutines can call this at the same time, and any of them wins.
 func (l *List[T]) grow(full *segment[T]) {
 	next := full.next.Load()
 	if next == nil {
@@ -137,7 +137,7 @@ func (l *List[T]) Append(value T) {
 
 // AppendRange adds every value to the end of the list, in the given order.
 //
-// One atomic add reserves a whole run of slots, so a bulk append costs far
+// A single atomic add reserves a whole run of slots, so a bulk append costs far
 // fewer atomic operations than the same number of Append calls. The run stays
 // contiguous unless it crosses the end of a segment.
 func (l *List[T]) AppendRange(values ...T) {
@@ -153,7 +153,7 @@ func (l *List[T]) AppendRange(values ...T) {
 		if n > uint64(len(values)) {
 			n = uint64(len(values))
 		}
-		// One count for the whole run. The count still rises before any
+		// A single count for the whole run. The count still rises before any
 		// ready flag, which is what keeps Len from going negative.
 		for i := uint64(0); i < n; i++ {
 			s.slots[start+i].value = values[i]
@@ -208,10 +208,10 @@ func (l *List[T]) TryTake() (T, bool) {
 	}
 }
 
-// TryTakeRange removes up to len(buf) elements into buf, oldest first, and
+// TryTakeRange removes up to len(buf) elements into buf, oldest and
 // returns how many it wrote.
 //
-// One compare-and-swap claims a whole run of slots, so a bulk take costs far
+// A single compare-and-swap claims a whole run of slots, so a bulk take costs far
 // fewer atomic operations than the same number of TryTake calls.
 func (l *List[T]) TryTakeRange(buf []T) int {
 	n := 0
@@ -293,7 +293,6 @@ func (l *List[T]) IsEmpty() bool {
 	return l.Len() == 0
 }
 
-// Clear takes elements one by one; not atomic -- others can still be filling it when this returns.
 func (l *List[T]) Clear() {
 	for {
 		if _, ok := l.TryTake(); !ok {
@@ -302,7 +301,7 @@ func (l *List[T]) Clear() {
 	}
 }
 
-// All iterates the elements, oldest first, removing none. A yielded element
+// All iterates the elements, oldest removing none. A yielded element
 // can already be taken elsewhere, and a concurrent append can appear -- use
 // it for a report, never an exact decision.
 func (l *List[T]) All() iter.Seq[T] {
@@ -322,7 +321,7 @@ func (l *List[T]) All() iter.Seq[T] {
 	}
 }
 
-// Values returns the elements as a slice, oldest first, and removes none of
+// Values returns the elements as a slice, oldest and removes none of
 // them. It has the same best-effort reading as All.
 func (l *List[T]) Values() []T {
 	out := make([]T, 0, l.Len())

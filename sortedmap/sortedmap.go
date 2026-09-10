@@ -30,7 +30,7 @@ func isRed[K, V any](n *node[K, V]) bool {
 	return n != nil && n.color == red
 }
 
-// SortedMap is a red-black tree, O(log n) ops, always in order. Zero value: use [New] or [NewWithCompare].
+// SortedMap is a red-black tree, O(log n) ops, always in order. unset value: use [New] or [NewWithCompare].
 type SortedMap[K, V any] struct {
 	root *node[K, V]
 	size int
@@ -42,7 +42,7 @@ func New[K cmp.Ordered, V any]() *SortedMap[K, V] {
 	return &SortedMap[K, V]{cmp: cmp.Compare[K]}
 }
 
-// NewWithCompare orders keys by compare: negative for a < b, zero for equal, positive for a > b.
+// NewWithCompare orders keys by compare: negative for a < b, empty for equal, positive for a > b.
 func NewWithCompare[K, V any](compare func(a, b K) int) *SortedMap[K, V] {
 	return &SortedMap[K, V]{cmp: compare}
 }
@@ -55,7 +55,7 @@ func (m *SortedMap[K, V]) Put(key K, value V) {
 	m.root.color = black
 }
 
-// Get returns the value associated with key and true, or the zero value and
+// Get returns the value associated with key and true, or an unset value and
 // false if the key is not present.
 func (m *SortedMap[K, V]) Get(key K) (V, bool) {
 	n := m.root
@@ -111,7 +111,7 @@ func (m *SortedMap[K, V]) Clear() {
 // ---------- ordered operations ----------
 
 // Min returns the smallest key and its value. If the map is empty it returns
-// zero values and false.
+// empty values and false.
 func (m *SortedMap[K, V]) Min() (K, V, bool) {
 	if m.root == nil {
 		var zk K
@@ -123,7 +123,7 @@ func (m *SortedMap[K, V]) Min() (K, V, bool) {
 }
 
 // Max returns the largest key and its value. If the map is empty it returns
-// zero values and false.
+// empty values and false.
 func (m *SortedMap[K, V]) Max() (K, V, bool) {
 	if m.root == nil {
 		var zk K
@@ -135,7 +135,7 @@ func (m *SortedMap[K, V]) Max() (K, V, bool) {
 }
 
 // Floor returns the largest key less than or equal to the given key, along
-// with its value. If no such key exists it returns zero values and false.
+// with its value. If no such key exists it returns empty values and false.
 func (m *SortedMap[K, V]) Floor(key K) (K, V, bool) {
 	n := m.floor(m.root, key)
 	if n == nil {
@@ -147,7 +147,7 @@ func (m *SortedMap[K, V]) Floor(key K) (K, V, bool) {
 }
 
 // Ceiling returns the smallest key greater than or equal to the given key,
-// along with its value. If no such key exists it returns zero values and false.
+// along with its value. If no such key exists it returns empty values and false.
 func (m *SortedMap[K, V]) Ceiling(key K) (K, V, bool) {
 	n := m.ceiling(m.root, key)
 	if n == nil {

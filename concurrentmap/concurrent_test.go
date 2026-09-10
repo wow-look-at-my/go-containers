@@ -37,8 +37,8 @@ func TestConcurrentAddOrUpdateCounters(t *testing.T) {
 	}
 }
 
-// TestConcurrentLoadOrComputeRunsOnce proves the lock does what .NET's
-// GetOrAdd cannot: one racing caller computes, and every caller sees its value.
+// TestConcurrentLoadOrComputeRunsOnce proves the lock does what.NET's
+// GetOrAdd cannot: a single racing caller computes, and every caller sees its value.
 func TestConcurrentLoadOrComputeRunsOnce(t *testing.T) {
 	const goroutines = 64
 	m := New[string, int]()
@@ -74,7 +74,7 @@ func TestConcurrentLoadOrComputeRunsOnce(t *testing.T) {
 	}
 }
 
-// TestConcurrentTryAddRunsOnce checks that exactly one caller wins an insert.
+// TestConcurrentTryAddRunsOnce checks that exactly a single caller wins an insert.
 func TestConcurrentTryAddRunsOnce(t *testing.T) {
 	const goroutines = 32
 	m := New[string, int]()
@@ -100,7 +100,7 @@ func TestConcurrentTryAddRunsOnce(t *testing.T) {
 }
 
 // TestConcurrentChurn runs stores, deletes, loads, Len and iteration together.
-// The assertions are the invariants that hold once the writers stop.
+// The assertions are the invariants that hold a single time the writers stop.
 func TestConcurrentChurn(t *testing.T) {
 	const (
 		keep   = 500 // keys the writers own; nobody deletes them

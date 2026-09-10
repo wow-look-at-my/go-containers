@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: ['**']
 
 permissions:
   id-token: write
@@ -16,7 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: wow-look-at-my/go-toolchain@v1
+      - uses: wow-look-at-my/go-toolchain@master
+        with:
+          # The comparison suite outruns the default budget and is killed mid-benchmark.
+          timeout: '20'
 
   # Runs the tests under -race: every collection here is concurrent, so a green build must mean tests ran race-checked.
   race:
@@ -25,9 +29,8 @@ jobs:
       GOFLAGS: -race
     steps:
       - uses: actions/checkout@v4
-      - uses: wow-look-at-my/go-toolchain@v1
+      - uses: wow-look-at-my/go-toolchain@master
         with:
           cgo: true
-          targets: linux/amd64
           autorelease: false
           timeout: '20'

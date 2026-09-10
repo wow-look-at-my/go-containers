@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// waiter is one parked goroutine; ready closes on grant or complete. Each
-// park allocates fresh -- pooling would break testing/synctest.
+// waiter is a parked goroutine; ready closes on grant or complete. Each park
+// allocates fresh -- pooling would break testing/synctest.
 type waiter struct {
 	ready   chan struct{}
 	granted bool
@@ -53,8 +53,8 @@ func (s *sema) remove(w *waiter) bool {
 	return true
 }
 
-// release adds one permit, and hands it straight to the longest waiter when
-// one is parked.
+// release adds a single permit, and hands it straight to the longest waiter when
+// a single is parked.
 func (s *sema) release() {
 	s.mu.Lock()
 	if w := s.head; w != nil {
@@ -68,7 +68,7 @@ func (s *sema) release() {
 	s.mu.Unlock()
 }
 
-// tryAcquire takes one permit without any wait.
+// tryAcquire takes a single permit without any wait.
 func (s *sema) tryAcquire() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -79,11 +79,11 @@ func (s *sema) tryAcquire() bool {
 	return false
 }
 
-// acquire takes one permit. It reports false when ctx ends first, and false
+// acquire takes a single permit. It reports false when ctx ends and false
 // when the semaphore completes with no permit left.
 //
 // A permit already handed to this waiter wins over a cancelled context. The
-// permit stands for one element or one free slot, and a caller that drops it
+// permit stands for a single element or a single free slot, and a caller that drops it
 // would lose that element or that slot.
 func (s *sema) acquire(ctx context.Context) bool {
 	s.mu.Lock()

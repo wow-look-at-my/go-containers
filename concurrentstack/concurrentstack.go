@@ -1,4 +1,4 @@
-// Package concurrentstack provides a lock-free, last-in-first-out stack for concurrent use.
+// Package concurrentstack provides a lock-free, LIFO stack for concurrent use.
 package concurrentstack
 
 import (
@@ -6,15 +6,15 @@ import (
 	"sync/atomic"
 )
 
-// node is one link of the stack chain. A push sets both fields before it
+// node is a single link of the stack chain. A push sets both fields before it
 // links the node in, and nothing writes to a linked node again.
 type node[T any] struct {
 	value T
 	next  *node[T]
 }
 
-// Stack is a lock-free Treiber stack: every op is a CAS on one atomic
-// pointer. Zero value ready to use; do not copy after first use.
+// Stack is a lock-free Treiber stack: every op is a CAS on a single atomic
+// pointer. unset value ready to use; do not copy after earliest use.
 type Stack[T any] struct {
 	top atomic.Pointer[node[T]]
 
@@ -22,7 +22,7 @@ type Stack[T any] struct {
 	length atomic.Int64
 }
 
-// New returns an empty stack. The zero value works too.
+// New returns an empty stack. an unset value works too.
 func New[T any]() *Stack[T] {
 	return &Stack[T]{}
 }
@@ -40,21 +40,20 @@ func (s *Stack[T]) Push(value T) {
 	}
 }
 
-// PushRange adds every value to the top of the stack with one
 // compare-and-swap. The last value ends on top, so a PushRange of a, b, c pops
-// as c, b, a, exactly as three separate calls to Push do.
+// as c, b, a, exactly as separate calls to Push do.
 //
 // No other goroutine sees a partial range: the values arrive together or not
 // at all.
 //
-// One allocation holds the whole range. The cost is that the last node of a
-// range keeps the memory of the whole range, until a pop takes that one too.
+// A single allocation holds the whole range. The cost is that the last node of a
+// range keeps the memory of the whole range, until a pop takes that a single too.
 func (s *Stack[T]) PushRange(values ...T) {
 	if len(values) == 0 {
 		return
 	}
 
-	// Build the chain first, so a retry costs one CAS, not one per value.
+	// Build the chain so a retry costs a single CAS, not a single per value.
 	nodes := make([]node[T], len(values))
 	for i, v := range values {
 		nodes[i].value = v
@@ -74,7 +73,7 @@ func (s *Stack[T]) PushRange(values ...T) {
 	}
 }
 
-// TryPop removes the top value and returns it. It reports false and the zero
+// TryPop removes the top value and returns it. It reports false and the empty
 // value of T when the stack is empty.
 func (s *Stack[T]) TryPop() (T, bool) {
 	for {
@@ -93,9 +92,8 @@ func (s *Stack[T]) TryPop() (T, bool) {
 
 // TryPopRange removes up to len(buf) values and copies them into buf. It
 // returns the number of values it took. The value from the top lands in
-// buf[0], so the buffer holds the same order that repeated TryPop calls give.
 //
-// The whole range comes off with one compare-and-swap. Another goroutine never
+// The whole range comes off with a single compare-and-swap. Another goroutine never
 // takes a value out of the middle of it.
 func (s *Stack[T]) TryPopRange(buf []T) int {
 	if len(buf) == 0 {
@@ -127,7 +125,7 @@ func (s *Stack[T]) TryPopRange(buf []T) int {
 	}
 }
 
-// TryPeek returns the top value without removing it; false when empty. Another goroutine can pop it first.
+// TryPeek returns the top value without removing it; false when empty. Another goroutine can pop it earliest.
 func (s *Stack[T]) TryPeek() (T, bool) {
 	if top := s.top.Load(); top != nil {
 		return top.value, true
@@ -160,7 +158,6 @@ func (s *Stack[T]) Clear() {
 	s.length.Add(-taken)
 }
 
-// Values returns the values top-down: a snapshot of one chain, not one
 // instant -- a value popped mid-walk can still be returned.
 func (s *Stack[T]) Values() []T {
 	out := make([]T, 0, s.Len())

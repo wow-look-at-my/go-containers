@@ -331,7 +331,7 @@ func TestConcurrentAddAndTake(t *testing.T) {
 }
 
 // TestConcurrentTakeRange asserts that the bulk take path also takes each
-// value exactly once.
+// value exactly a single time.
 func TestConcurrentTakeRange(t *testing.T) {
 	const consumers, total = 8, 20000
 
@@ -370,7 +370,7 @@ func TestConcurrentTakeRange(t *testing.T) {
 }
 
 // TestConcurrentReadersAndWriters walks the bag while other goroutines add and
-// take. It asserts that a walk stays safe, not that it sees one instant.
+// take. It asserts that a walk stays safe, not that it sees a single instant.
 func TestConcurrentReadersAndWriters(t *testing.T) {
 	const rounds = 500
 

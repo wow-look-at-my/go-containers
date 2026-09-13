@@ -13,7 +13,7 @@ import (
 )
 
 // Set is an unordered collection of unique elements of type T, safe for
-// concurrent use. Zero value: not usable, use New.
+// concurrent use. unset value: not usable, use New.
 type Set[T comparable] struct {
 	m *concurrentmap.Map[T, struct{}]
 }
@@ -30,14 +30,14 @@ func (s *Set[T]) Add(elem T) bool {
 	return s.m.TryAdd(elem, struct{}{})
 }
 
-// AddRange inserts one or more elements into the set.
+// AddRange inserts any number of elements into the set.
 func (s *Set[T]) AddRange(elems ...T) {
 	for _, e := range elems {
 		s.m.TryAdd(e, struct{}{})
 	}
 }
 
-// Remove deletes one or more elements from the set. It does nothing for an
+// Remove deletes any number of elements from the set. It does nothing for an
 // element that is absent.
 func (s *Set[T]) Remove(elems ...T) {
 	for _, e := range elems {
@@ -67,7 +67,7 @@ func (s *Set[T]) Clear() {
 }
 
 // All returns an iterator over the set's elements: a snapshot per shard, not
-// one point in time for the whole set.
+// a single point in time for the whole set.
 func (s *Set[T]) All() iter.Seq[T] {
 	return s.m.Keys()
 }

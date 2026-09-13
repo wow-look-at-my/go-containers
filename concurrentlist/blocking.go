@@ -14,7 +14,7 @@ var ErrCompleted = blocking.ErrCompleted
 const Unbounded = blocking.Unbounded
 
 // BlockingList is a List whose Append/Take wait on full/empty, bounded by ctx.
-// Zero value not usable -- use NewBlocking.
+// Unset value not usable -- use NewBlocking.
 type BlockingList[T any] struct {
 	list *List[T]
 	core *blocking.Core[T]
@@ -27,7 +27,7 @@ type blockingConfig struct {
 	capacity int
 }
 
-// WithCapacity bounds the list to n elements, so Append waits once it fills. Zero or below is unbounded.
+// WithCapacity bounds the list to n elements, so Append waits a single time it fills. empty or below is unbounded.
 func WithCapacity(n int) BlockingOption {
 	return func(c *blockingConfig) { c.capacity = n }
 }
@@ -51,13 +51,13 @@ func (b *BlockingList[T]) Append(ctx context.Context, value T) error {
 // TryAppend adds value without waiting; false when full or complete.
 func (b *BlockingList[T]) TryAppend(value T) bool { return b.core.TryAdd(value) }
 
-// Take removes the oldest element, waiting while the list is empty; ErrCompleted once complete and empty, or ctx.Err().
+// Take removes the oldest element, waiting while the list is empty; ErrCompleted a single time complete and empty, or ctx.Err().
 func (b *BlockingList[T]) Take(ctx context.Context) (T, error) { return b.core.Take(ctx) }
 
 // TryTake removes the oldest element without waiting; false when the list is empty.
 func (b *BlockingList[T]) TryTake() (T, bool) { return b.core.TryTake() }
 
-// Consume removes elements, oldest first, until the list completes and empties, or ctx ends.
+// Consume removes elements, oldest until the list completes and empties, or ctx ends.
 func (b *BlockingList[T]) Consume(ctx context.Context) iter.Seq[T] { return b.core.Consume(ctx) }
 
 // CompleteAdding marks the list complete and wakes every waiter; they drain what's left, then see ErrCompleted.
@@ -78,8 +78,8 @@ func (b *BlockingList[T]) IsEmpty() bool { return b.core.IsEmpty() }
 // Cap returns the bounded capacity, or Unbounded.
 func (b *BlockingList[T]) Cap() int { return b.core.Cap() }
 
-// All iterates the elements, oldest first, removing none; same best-effort reading as List.All.
+// All iterates the elements, oldest removing none; same best-effort reading as List.All.
 func (b *BlockingList[T]) All() iter.Seq[T] { return b.list.All() }
 
-// Values returns the elements as a slice, oldest first, removing none.
+// Values returns the elements as a slice, oldest removing none.
 func (b *BlockingList[T]) Values() []T { return b.list.Values() }

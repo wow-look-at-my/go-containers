@@ -11,7 +11,7 @@ import (
 
 // Every benchmark runs Event[T] against the hand-rolled dispatcher below.
 
-// sinkShared is the parallel sink; a plain one racing goroutines fails under -race.
+// sinkShared is the parallel sink; a plain a single racing goroutines fails under -race.
 var sinkShared atomic.Int64
 
 var (
@@ -20,7 +20,7 @@ var (
 )
 
 // handRolled is the dispatcher a caller writes instead: a slice of callbacks
-// under a mutex, holding each one strongly.
+// under a mutex, holding each a single strongly.
 type handRolled[T any] struct {
 	mu        sync.RWMutex
 	callbacks []*func(T) error
@@ -81,10 +81,10 @@ func newCallbacks(n int) []func(intArgs) error {
 	return cbs
 }
 
-// subscriberCounts sweep per-subscriber dispatch cost; two points show no curve.
+// subscriberCounts sweep per-subscriber dispatch cost; points show no curve.
 var subscriberCounts = []int{1, 10, 100}
 
-// eachCount runs one pair of implementations at every subscriber count.
+// eachCount runs a single pair of implementations at every subscriber count.
 func eachCount(b *testing.B, event, hand func(b *testing.B, n int)) {
 	b.Helper()
 	for _, n := range subscriberCounts {
@@ -160,7 +160,7 @@ func BenchmarkCompareInvokeWithErrors(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareConcurrentInvoke dispatches from every core at once. Both
+// BenchmarkCompareConcurrentInvoke dispatches from every core at the same time. Both
 // implementations take a read lock, so this measures contention on it.
 func BenchmarkCompareConcurrentInvoke(b *testing.B) {
 	eachCount(b,
@@ -206,7 +206,6 @@ func BenchmarkCompareConcurrentInvoke(b *testing.B) {
 
 // ---------- subscription ----------
 
-// BenchmarkCompareSubscribe fills a fresh dispatcher with 100 callbacks and reports
 // the per-callback cost. Event keeps its callbacks in a set, so an insert is a
 // hash lookup; the hand-rolled slice scans everything it already holds, which
 // is why its cost per subscriber rises with the size of the dispatcher.
@@ -270,7 +269,7 @@ func BenchmarkCompareSubscribeDuplicate(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareUnsubscribe removes and re-adds one callback per iteration, so the
+// BenchmarkCompareUnsubscribe removes and re-adds a single callback per iteration, so the
 // dispatcher keeps its size across the run.
 func BenchmarkCompareUnsubscribe(b *testing.B) {
 	const n = 100
@@ -303,7 +302,7 @@ func BenchmarkCompareUnsubscribe(b *testing.B) {
 		})
 }
 
-// pair runs one pair of implementations.
+// pair runs a single pair of implementations.
 func pair(b *testing.B, event, hand func(b *testing.B)) {
 	b.Helper()
 	b.Run("event", func(b *testing.B) { b.ReportAllocs(); event(b) })

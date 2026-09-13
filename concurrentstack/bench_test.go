@@ -13,9 +13,9 @@ import (
 var benchParallelism = []int{1, 4, 16}
 
 const (
-	// benchBatch is the size of one PushRange or TryPopRange.
+	// benchBatch is the size of a single PushRange or TryPopRange.
 	benchBatch = 64
-	// benchDrain: one drain per this many pushes keeps memory flat, cheaply.
+	// benchDrain: a single drain per this many pushes keeps memory flat, cheaply.
 	benchDrain = 4096
 	// benchFill is the prefill of a pop-only benchmark.
 	benchFill = 1 << 16
@@ -79,7 +79,7 @@ func (s *mutexStack[T]) Len() int {
 	return len(s.items)
 }
 
-// impl is one implementation of the workload under measurement.
+// impl is a single implementation of the workload under measurement.
 type impl struct {
 	name string
 	run  func(b *testing.B)
@@ -99,7 +99,7 @@ func eachParallelism(b *testing.B, impls ...impl) {
 	}
 }
 
-// each runs every implementation once, on one goroutine.
+// each runs every implementation a single time, on a single goroutine.
 func each(b *testing.B, impls ...impl) {
 	b.Helper()
 	for _, im := range impls {
@@ -147,7 +147,7 @@ func BenchmarkCompareParallelPush(b *testing.B) {
 }
 
 func BenchmarkCompareParallelPop(b *testing.B) {
-	// An empty stack refills via one PushRange per benchBatch pops.
+	// An empty stack refills via a single PushRange per benchBatch pops.
 	refill := make([]int, benchBatch)
 
 	eachParallelism(b,
@@ -234,7 +234,7 @@ func BenchmarkCompareParallelPushPop(b *testing.B) {
 }
 
 func BenchmarkCompareParallelBulk(b *testing.B) {
-	// One iteration moves benchBatch values in and back out, keeping the stack small.
+	// A single iteration moves benchBatch values in and back out, keeping the stack small.
 	values := make([]int, benchBatch)
 
 	eachParallelism(b,
@@ -294,7 +294,7 @@ func BenchmarkCompareParallelLen(b *testing.B) {
 		}})
 }
 
-// ---------- one goroutine ----------
+// ---------- a single goroutine ----------
 
 func BenchmarkComparePush(b *testing.B) {
 	each(b,

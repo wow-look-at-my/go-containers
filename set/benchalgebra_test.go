@@ -7,7 +7,6 @@ import "testing"
 
 // ---------- set algebra ----------
 //
-// Each pair holds two 10000-element sets overlapping by half.
 
 func BenchmarkCompareUnion(b *testing.B) {
 	pair(b,
@@ -58,9 +57,9 @@ func BenchmarkCompareIntersection(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareIntersectionLopsided pits a tiny set against a huge one. Set
+// Set
 // iterates the smaller side; the obvious hand-rolled loop iterates the
-// receiver, so the two differ by the size ratio rather than by a constant.
+// receiver, so the differ by the size ratio rather than by a constant.
 func BenchmarkCompareIntersectionLopsided(b *testing.B) {
 	pair(b,
 		func(b *testing.B) {
@@ -194,7 +193,7 @@ func BenchmarkCompareEqual(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareIsDisjoint uses two sets that share nothing, the worst case: no
+// BenchmarkCompareIsDisjoint uses sets that share nothing, the worst case: no
 // early exit is possible, so the whole smaller side is probed.
 func BenchmarkCompareIsDisjoint(b *testing.B) {
 	pair(b,

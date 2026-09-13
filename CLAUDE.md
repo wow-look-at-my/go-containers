@@ -25,6 +25,8 @@ tests with coverage, and builds. Never run a bare `go` command.
   than one rides a pooled buffer. Both copy the callbacks and release the lock BEFORE calling any of them, which is what lets a callback
   subscribe or unsubscribe.
 - `event/dispatcher.go` — private `dispatcher[CB]`, the weak set and snapshot pool both event types share.
+- `optional/optional.go` — `Optional[T]`, a value that is present or absent, held inline rather than behind a `*T`. The zero value is empty, so `Set` and `Clear` take a pointer receiver and everything else reads a value. `OfOk` turns a comma-ok result into one. `Map` and `FlatMap` are functions, since a method cannot add a type parameter. `IsZero` is what `omitzero` calls, and `optional/json.go` marshals a present value as itself and an empty one as `null`.
+- `variant/variant.go` — `Variant`, a tagged union: a value of any type that remembers its type. The alternatives are VARIADIC, never a `Variant2`/`Variant3` family. Go has no variadic type parameter, and such a family caps the alternatives at whatever arity somebody wrote. They appear where the value is read back, as the handler list of `Switch` and `Match`. `Get`/`Is`/`MustGet` are type assertions and cost no reflection. `Switch` and `Match` pick a handler by reflection. A handler of the wrong shape PANICS, because that is a mistake in the call rather than in the data. A trailing `func(any)` is the default case.
 - `concurrentmap/concurrentmap.go` — `Map[K, V]`, keys sharded across independently locked partitions, after .NET's ConcurrentDictionary.
   `hash/maphash.Comparable` picks the shard; each shard is padded to 128 bytes so two never share a cache line. The zero value is NOT
   usable and every method says so with a panic that names New. The callbacks of LoadOrCompute, AddOrUpdate and Compute run UNDER the
@@ -54,8 +56,7 @@ tests with coverage, and builds. Never run a bare `go` command.
   its pre-dispatch snapshot cost. Headline findings live in README.md.
 - The plain `Benchmark*` functions at the foot of each `*_test.go` measure one implementation alone. They predate the comparison suite and are NOT
   superseded by it: the two answer different questions, and the Compare prefix exists so both keep their names. Do not delete them.
-- `.github/workflows/ci.yml` — one `build` job running `wow-look-at-my/go-toolchain@v1`. The permissions block is the one go-toolchain documents;
-  every entry in it guards a hard failure.
+- `.github/workflows/ci.yml` — a `build` job and a `race` job, both running `wow-look-at-my/go-toolchain@master`. The permissions block is the one go-toolchain documents, and every entry in it guards a hard failure. Both jobs raise the test timeout to 20 minutes. The comparison suite runs past the default and is killed mid-benchmark, after the tests have already passed. The `race` job is what makes green mean race-checked here.
 
 ## Code Conventions
 

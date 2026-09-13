@@ -1,9 +1,6 @@
 # go-containers
 
-Generic container types for Go: a set, a sorted map, a weak-referenced event,
-and a family of concurrent collections — a sharded map, a lock-free ordered
-list, a lock-free stack and bag, and a blocking twin of each. Pure Go, one
-dependency (testify, tests only).
+Generic container types for Go: a set, a sorted map, a weak-referenced event, an optional value and a tagged union. Plus a family of concurrent collections: a sharded map, a lock-free ordered list, a lock-free stack and bag, and a blocking twin of each. Pure Go, with testify as the one dependency, for the tests alone.
 
 Every concurrent type keeps its synchronization inside itself. No caller ever
 takes a lock, and no method hands one back.
@@ -84,6 +81,40 @@ returns each callback's value.
 The argument type must embed `event.Args`. That rules out a bare `int` or
 `string` argument, so an event can gain a field later without breaking every
 subscriber.
+
+## optional
+
+`optional.Optional[T]` holds a value of type T, or nothing. Reach for it instead of a `*T` that only ever means "maybe". The value sits inline, so there is no allocation and no way to dereference an absent one.
+
+```go
+import "github.com/wow-look-at-my/go-containers/optional"
+
+port := optional.OfOk(env.Lookup("PORT"))    // a comma-ok result, as a value
+port.OrElse("8080")                          // "8080" when PORT is unset
+optional.Map(port, strconv.Atoi)             // Optional[int], and Atoi never runs on an empty one
+```
+
+The zero value is an empty Optional ready to use. Of, Empty, OfOk, OfPtr, Get, MustGet, IsPresent, IsEmpty, OrElse, OrElseGet, OrZero, Ptr, Set, Clear, Filter, If, All (an iterator), Values and String. The functions Map, FlatMap and Equal sit beside them. A present value marshals as itself and an empty one as `null`. IsZero makes `omitzero` drop an empty field.
+
+## variant
+
+`variant.Variant` holds a value of any type and remembers which type it is. It is the tagged union Go has no syntax for.
+
+The alternatives are variadic. There is no `Variant2`/`Variant3` family, because Go has no variadic type parameter. Such a family also caps the alternatives at whatever arity somebody wrote out. The alternatives appear where a caller reads the value back instead.
+
+```go
+import "github.com/wow-look-at-my/go-containers/variant"
+
+v := variant.Of(42)
+n, ok := variant.Get[int](v)                  // a type assertion: no reflection
+label, _ := variant.Match[string](v,
+    func(i int) string { return "int" },
+    func(s string) string { return "string" },
+    func(a any) string { return "something else" },  // a trailing func(any) is the default
+)
+```
+
+Of, Empty, Get, Is, MustGet, Value, IsPresent, IsEmpty, Type, TypeName, Set, Clear, String, the Switch method and the Match function. Switch and Match pick a handler by reflection, so Get is the cheap path for a type you already know. A handler of the wrong shape panics: that is a mistake in the call, not in the data.
 
 ## concurrentmap
 

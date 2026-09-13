@@ -171,7 +171,7 @@ func TestBlockingAppendAfterCompleteAdding(t *testing.T) {
 	assert.False(t, b.TryAppend(1))
 	assert.Equal(t, 0, b.Len())
 
-	b.CompleteAdding() // A second call must change nothing.
+	b.CompleteAdding() // Another call must change nothing.
 	assert.True(t, b.IsCompleted())
 }
 

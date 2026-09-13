@@ -94,7 +94,7 @@ func TestPushRangeOrder(t *testing.T) {
 	s.PushRange("a", "b", "c")
 	require.Equal(t, 3, s.Len(), "expected three values")
 
-	// The last value pushed sits on top, exactly as three Push calls leave it.
+	// The last value pushed sits on top, exactly as Push calls leave it.
 	assert.Equal(t, []string{"c", "b", "a"}, drain(s), "expected c, b, a")
 
 	one := New[int]()
@@ -319,7 +319,7 @@ func TestConcurrentProducersAndConsumers(t *testing.T) {
 }
 
 func TestConcurrentStacksKeepGoroutineLIFO(t *testing.T) {
-	// One goroutine's pushes must come back in its own reverse order.
+	// A single goroutine's pushes must come back in its own reverse order.
 	var wg sync.WaitGroup
 	for g := range producers {
 		wg.Add(1)

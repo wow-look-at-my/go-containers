@@ -37,7 +37,7 @@ func (d *dispatcher[CB]) len() int {
 }
 
 // takeOne copies the sole subscriber's weak pointer to the stack and
-// releases the lock. ok is false when there is not exactly one subscriber.
+// releases the lock. ok is false when there is not exactly a single subscriber.
 func (d *dispatcher[CB]) takeOne() (only weak.Pointer[CB], ok bool) {
 	d.mu.RLock()
 	if d.callbacks.Len() != 1 {

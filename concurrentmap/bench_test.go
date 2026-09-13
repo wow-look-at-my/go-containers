@@ -12,7 +12,7 @@ import (
 // -- the whole point of sharding.
 
 const (
-	// mapSize is every prepared map's key count, a power of two so a key index masks down.
+	// mapSize is every prepared map's key count, a power of so a key index masks down.
 	mapSize = 1 << 12
 	keyMask = mapSize - 1
 	// hotKeys is the small key space the contended benchmarks share.
@@ -23,14 +23,14 @@ const (
 // parallelism sweeps the goroutine count as a multiple of GOMAXPROCS.
 var parallelism = []int{1, 4, 16}
 
-// Sinks keep results alive; a parallel benchmark folds into sinkParallel once, after its loop.
+// Sinks keep results alive; a parallel benchmark folds into sinkParallel a single time, after its loop.
 var (
 	sinkInt      int
 	sinkBool     bool
 	sinkParallel atomic.Int64
 )
 
-// startSeq gives each goroutine a distinct start index, or all would share one cache line in lockstep.
+// startSeq gives each goroutine a distinct start index, or all would share a single cache line in lockstep.
 var startSeq atomic.Int64
 
 func nextStart() int {
@@ -38,7 +38,7 @@ func nextStart() int {
 }
 
 // mutexMap is the guarded map a caller writes when a sharded map is not
-// available. One lock covers every key.
+// available. a single lock covers every key.
 type mutexMap struct {
 	mu sync.RWMutex
 	m  map[int]int
@@ -104,7 +104,7 @@ func newSyncMap(n int) *sync.Map {
 	return &m
 }
 
-// trio runs one workload on all three implementations.
+// trio runs a single workload on all implementations.
 func trio(b *testing.B, cmap, syncmap, mutexmap func(b *testing.B)) {
 	b.Helper()
 	b.Run("cmap", func(b *testing.B) { b.ReportAllocs(); cmap(b) })
@@ -112,7 +112,7 @@ func trio(b *testing.B, cmap, syncmap, mutexmap func(b *testing.B)) {
 	b.Run("mutexmap", func(b *testing.B) { b.ReportAllocs(); mutexmap(b) })
 }
 
-// trioParallel runs one workload on all three implementations, at every
+// trioParallel runs a single workload on all implementations, at every
 // parallelism level.
 func trioParallel(b *testing.B, cmap, syncmap, mutexmap func(b *testing.B)) {
 	b.Helper()
@@ -212,7 +212,6 @@ func BenchmarkCompareStoreParallel(b *testing.B) {
 		})
 }
 
-// BenchmarkCompareMixedParallel is the 90/10 case: nine reads for each write.
 func BenchmarkCompareMixedParallel(b *testing.B) {
 	trioParallel(b,
 		func(b *testing.B) {

@@ -214,7 +214,7 @@ func TestResultEventZeroValue(t *testing.T) {
 
 // ---------- benchmarks ----------
 //
-// These measure one implementation on its own. The paired suite that
+// These measure a single implementation on its own. The paired suite that
 // measures the same operations against a hand-rolled equivalent lives in
 // bench_test.go, under BenchmarkCompare* names.
 

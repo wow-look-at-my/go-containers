@@ -10,8 +10,10 @@ import (
 	"github.com/wow-look-at-my/go-containers/concurrentlist"
 	"github.com/wow-look-at-my/go-containers/concurrentmap"
 	"github.com/wow-look-at-my/go-containers/concurrentstack"
+	"github.com/wow-look-at-my/go-containers/optional"
 	"github.com/wow-look-at-my/go-containers/set"
 	"github.com/wow-look-at-my/go-containers/sortedmap"
+	"github.com/wow-look-at-my/go-containers/variant"
 )
 
 func main() {
@@ -23,11 +25,33 @@ func main() {
 	m.Put("bob", 2)
 	fmt.Println(m)
 
+	optionalValue()
+	taggedUnion()
 	concurrentMap()
 	concurrentList()
 	concurrentStack()
 	concurrentBag()
 	producerConsumer()
+}
+
+func optionalValue() {
+	found := optional.OfOk(sortedmap.New[string, int]().Get("alice"))
+	fmt.Println("optional: missing key reads as", found.OrElse(-1), "and prints as", found)
+
+	doubled := optional.Map(optional.Of(21), func(n int) int { return n * 2 })
+	fmt.Println("optional: mapped to", doubled.MustGet())
+}
+
+func taggedUnion() {
+	for _, v := range []variant.Variant{variant.Of(42), variant.Of("hello"), variant.Of(1.5)} {
+		// A trailing func(any) is the default case.
+		name, _ := variant.Match[string](v,
+			func(int) string { return "an int" },
+			func(string) string { return "a string" },
+			func(any) string { return "something else" },
+		)
+		fmt.Printf("variant: %v is %s\n", v, name)
+	}
 }
 
 func concurrentMap() {

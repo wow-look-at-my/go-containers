@@ -14,7 +14,7 @@ var ErrCompleted = blocking.ErrCompleted
 const Unbounded = blocking.Unbounded
 
 // BlockingBag is a Bag whose Add/Take wait on full/empty, bounded by ctx.
-// Zero value not usable -- use NewBlocking.
+// Unset value not usable -- use NewBlocking.
 type BlockingBag[T any] struct {
 	bag  *Bag[T]
 	core *blocking.Core[T]
@@ -27,7 +27,7 @@ type blockingConfig struct {
 	capacity int
 }
 
-// WithCapacity bounds the bag to n elements, so Add waits once it fills. Zero or below is unbounded.
+// WithCapacity bounds the bag to n elements, so Add waits a single time it fills. empty or below is unbounded.
 func WithCapacity(n int) BlockingOption {
 	return func(c *blockingConfig) { c.capacity = n }
 }
@@ -52,10 +52,10 @@ func (b *BlockingBag[T]) Add(ctx context.Context, value T) error {
 // TryAdd puts value in without waiting; false when full or complete.
 func (b *BlockingBag[T]) TryAdd(value T) bool { return b.core.TryAdd(value) }
 
-// Take removes any one element, waiting while the bag is empty; ErrCompleted once complete and empty, or ctx.Err().
+// Take removes any a single element, waiting while the bag is empty; ErrCompleted a single time complete and empty, or ctx.Err().
 func (b *BlockingBag[T]) Take(ctx context.Context) (T, error) { return b.core.Take(ctx) }
 
-// TryTake removes one element without waiting; false when the bag is empty.
+// TryTake removes a single element without waiting; false when the bag is empty.
 func (b *BlockingBag[T]) TryTake() (T, bool) { return b.core.TryTake() }
 
 // Consume removes elements, in no order, until the bag completes and empties, or ctx ends.
@@ -79,7 +79,7 @@ func (b *BlockingBag[T]) IsEmpty() bool { return b.core.IsEmpty() }
 // Cap returns the bounded capacity, or Unbounded.
 func (b *BlockingBag[T]) Cap() int { return b.core.Cap() }
 
-// TryPeek returns one element without removing it; false when the bag is empty.
+// TryPeek returns a single element without removing it; false when the bag is empty.
 func (b *BlockingBag[T]) TryPeek() (T, bool) { return b.bag.TryPeek() }
 
 // All iterates the elements, in no order, removing none; same best-effort reading as Bag.All.

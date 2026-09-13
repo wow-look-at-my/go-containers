@@ -1,9 +1,9 @@
 // Package concurrentbag provides Bag, a thread-safe unordered collection that
-// keeps duplicates. It is modelled on .NET's ConcurrentBag<T> and it is
+// keeps duplicates. It is modelled on.NET's ConcurrentBag<T> and it is
 // lock-free: every operation is a compare-and-swap loop over a Treiber stack.
 //
 // Go gives library code no goroutine identity and no P identity. A bag
-// therefore cannot copy .NET's thread-local affinity, where the same thread
+// therefore cannot copy.NET's thread-local affinity, where the same thread
 // adds to and takes from its own list. Each operation picks a shard at random
 // instead, and a take that finds its shard empty steals from the other shards.
 package concurrentbag
@@ -19,14 +19,14 @@ import (
 const (
 	// cacheLine is the amd64/arm64 line size, and the padding unit between shards.
 	cacheLine = 64
-	// shardsPerProc scales shards above GOMAXPROCS, so two random picks rarely collide.
+	// shardsPerProc scales shards above GOMAXPROCS, so random picks rarely collide.
 	shardsPerProc = 4
 	// minShards is the floor: few cores can still run many goroutines.
 	minShards = 8
 )
 
-// node is one element of a shard chain. A node is never recycled, and next is
-// immutable once the node is reachable from a shard top.
+// node is a single element of a shard chain. A node is never recycled, and next is
+// immutable a single time the node is reachable from a shard top.
 type node[T any] struct {
 	value T
 	next  *node[T]
@@ -39,7 +39,6 @@ type shard[T any] struct {
 	_   [cacheLine - 16]byte
 }
 
-// pushChain links a locally built chain onto the shard with one
 // compare-and-swap per attempt. head is the new top and tail is the far end.
 // The caller must own the whole chain: no other goroutine may reach it yet.
 func (s *shard[T]) pushChain(head, tail *node[T], count int64) {
@@ -54,7 +53,6 @@ func (s *shard[T]) pushChain(head, tail *node[T], count int64) {
 	}
 }
 
-// pop removes the top node and reports whether it got one.
 func (s *shard[T]) pop() (T, bool) {
 	for {
 		top := s.top.Load()
@@ -71,11 +69,10 @@ func (s *shard[T]) pop() (T, bool) {
 	}
 }
 
-// Bag keeps duplicates; no method blocks. Zero value not usable -- use [New].
+// Bag keeps duplicates; no method blocks. unset value not usable -- use [New].
 type Bag[T any] struct {
 	shards []shard[T]
-	// mask picks a shard from a random word; len(shards)-1, a power of two.
-	mask uint64
+	mask   uint64
 }
 
 // config holds the settings the options write.
@@ -86,7 +83,7 @@ type config struct {
 // Option configures a bag at construction. See [WithConcurrency].
 type Option func(*config)
 
-// WithConcurrency sizes shards from this instead of GOMAXPROCS. Below one has no effect.
+// WithConcurrency sizes shards from this instead of GOMAXPROCS. Below a single has no effect.
 func WithConcurrency(n int) Option {
 	return func(c *config) {
 		if n > 0 {
@@ -95,8 +92,7 @@ func WithConcurrency(n int) Option {
 	}
 }
 
-// New creates an empty bag. The shard count is a power of two at or above the
-// concurrency level, with a floor of 8.
+// New creates an empty bag. The shard count is a power of at or above the
 func New[T any](opts ...Option) *Bag[T] {
 	c := config{concurrency: runtime.GOMAXPROCS(0)}
 	for _, opt := range opts {
@@ -129,13 +125,13 @@ func (b *Bag[T]) TryAdd(value T) bool {
 	return true
 }
 
-// AddRange puts every value into the bag. It builds the whole chain first and
-// links it into one shard with a single compare-and-swap per attempt.
+// AddRange puts every value into the bag. It builds the whole chain earliest and
+// links it into a single shard with a single compare-and-swap per attempt.
 func (b *Bag[T]) AddRange(values ...T) {
 	if len(values) == 0 {
 		return
 	}
-	// One allocation for the whole range; its last node then keeps it all alive.
+	// A single allocation for the whole range; its last node then keeps it all alive.
 	nodes := make([]node[T], len(values))
 	for i, v := range values {
 		nodes[i].value = v
@@ -147,8 +143,8 @@ func (b *Bag[T]) AddRange(values ...T) {
 	b.shards[b.pick()].pushChain(head, tail, int64(len(values)))
 }
 
-// TryTake removes one value and reports whether it got one. It tries its own
-// shard first, then it steals from the others. It reports false only after it
+// It tries its own
+// shard then it steals from the others. It reports false only after it
 // saw every shard empty.
 func (b *Bag[T]) TryTake() (T, bool) {
 	start := b.pick()
@@ -186,7 +182,6 @@ func (b *Bag[T]) TryTakeRange(buf []T) int {
 	return got
 }
 
-// TryPeek reads one value without removal and reports whether it got one.
 // Another goroutine can take that value before the caller acts on it.
 func (b *Bag[T]) TryPeek() (T, bool) {
 	start := b.pick()
@@ -216,7 +211,7 @@ func (b *Bag[T]) IsEmpty() bool {
 }
 
 // Clear removes every value the bag holds. A value another goroutine adds
-// during the clear can survive it, because Clear detaches one shard at a time.
+// during the clear can survive it, because Clear detaches a single shard at a time.
 func (b *Bag[T]) Clear() {
 	for i := range b.shards {
 		s := &b.shards[i]
@@ -238,7 +233,7 @@ func (b *Bag[T]) Values() []T {
 	return out
 }
 
-// All iterates every value, in indeterminate order, one shard chain at a
+// All iterates every value, in indeterminate order, a single shard chain at a
 // time; a taken node's next pointer never changes, so it can still be yielded.
 func (b *Bag[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {

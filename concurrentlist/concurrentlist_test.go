@@ -167,7 +167,7 @@ func TestTryAddSatisfiesTheStoreContract(t *testing.T) {
 	assert.Equal(t, 42, v)
 }
 
-// Every appended element must come out exactly once, and the takes must
+// Every appended element must come out exactly a single time, and the takes must
 // preserve the order each producer used.
 func TestConcurrentAppendAndTakeLosesNothing(t *testing.T) {
 	const (
@@ -281,8 +281,8 @@ func TestConcurrentBulkOperations(t *testing.T) {
 	assert.Equal(t, 0, l.Len())
 }
 
-// TryPeek must follow the chain when the first segment is exhausted, and it
-// must report empty once nothing is left.
+// TryPeek must follow the chain when the earliest segment is exhausted, and it
+// must report empty a single time nothing is left.
 func TestTryPeekCrossesSegments(t *testing.T) {
 	l := New[int]()
 	for i := range initialSegmentLen + 5 {

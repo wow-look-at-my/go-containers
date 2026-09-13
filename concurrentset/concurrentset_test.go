@@ -37,7 +37,7 @@ func TestAddRange(t *testing.T) {
 func TestRemove(t *testing.T) {
 	s := New[int]()
 	s.AddRange(1, 2, 3)
-	s.Remove(2, 5) // 5 was never present
+	s.Remove(2, 5) //
 	assert.False(t, s.Contains(2))
 	assert.Equal(t, 2, s.Len())
 

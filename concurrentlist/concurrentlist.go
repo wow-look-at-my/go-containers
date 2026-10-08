@@ -7,12 +7,13 @@
 // The storage is a chain of segments, and a segment is a single contiguous array of
 // slots.
 // slot with a single atomic add, and the elements of a segment share cache lines.
-// There is no mutex on any path, and no operation can block another.
+// An append never waits. A producer can reserve a slot and not yet publish it.
+// A take or a peek that reaches such a slot parks on a channel until the
+// publish.
 package concurrentlist
 
 import (
 	"iter"
-	"runtime"
 	"sync"
 	"sync/atomic"
 )
@@ -22,8 +23,6 @@ const (
 	initialSegmentLen = 32
 	// maxSegmentLen bounds a taken element's held memory; a segment releases as a single unit.
 	maxSegmentLen = 4096
-	// spinsBeforeYield bounds the wait on a producer mid-reserve; it ends after a single store.
-	spinsBeforeYield = 24
 )
 
 // slot holds value plus ready: producer writes value then ready; consumer reads ready then value.
@@ -32,13 +31,38 @@ type slot[T any] struct {
 	value T
 }
 
-// waitReady returns when the producer of this slot has published its value.
-func (s *slot[T]) waitReady() {
-	for i := 0; !s.ready.Load(); i++ {
-		if i >= spinsBeforeYield {
-			runtime.Gosched()
-			i = 0
-		}
+// waitReady returns when the producer of s has published its value. A slot
+// that is not ready parks the caller on a channel of its own, which the next
+// publish on this list closes. The caller then looks at its slot again.
+func (l *List[T]) waitReady(s *slot[T]) {
+	if s.ready.Load() {
+		return
+	}
+	l.parkMu.Lock()
+	l.parked.Add(1)
+	for !s.ready.Load() {
+		wake := make(chan struct{})
+		l.wakers = append(l.wakers, wake)
+		l.parkMu.Unlock()
+		<-wake
+		l.parkMu.Lock()
+	}
+	l.parked.Add(-1)
+	l.parkMu.Unlock()
+}
+
+// wakeParked releases every goroutine parked in waitReady. A publish with
+// nobody parked reads a single counter and returns.
+func (l *List[T]) wakeParked() {
+	if l.parked.Load() == 0 {
+		return
+	}
+	l.parkMu.Lock()
+	wakers := l.wakers
+	l.wakers = nil
+	l.parkMu.Unlock()
+	for _, wake := range wakers {
+		close(wake)
 	}
 }
 
@@ -71,6 +95,11 @@ type List[T any] struct {
 	tail   atomic.Pointer[segment[T]]
 	count  atomic.Int64
 	initMu sync.Mutex
+
+	// parkMu guards wakers. parked counts the goroutines in waitReady, so a publish skips the mutex when nobody waits.
+	parkMu sync.Mutex
+	parked atomic.Int32
+	wakers []chan struct{}
 }
 
 // New creates an empty list. The empty List is equally usable; New exists for
@@ -120,6 +149,7 @@ func (l *List[T]) publish(s *slot[T], value T) {
 	s.value = value
 	l.count.Add(1)
 	s.ready.Store(true)
+	l.wakeParked()
 }
 
 // Append adds value to the end of the list. It never blocks.
@@ -162,6 +192,7 @@ func (l *List[T]) AppendRange(values ...T) {
 		for i := uint64(0); i < n; i++ {
 			s.slots[start+i].ready.Store(true)
 		}
+		l.wakeParked()
 		values = values[n:]
 		if len(values) > 0 {
 			l.grow(s)
@@ -191,7 +222,7 @@ func (l *List[T]) TryTake() (T, bool) {
 				continue
 			}
 			el := &s.slots[pos]
-			el.waitReady()
+			l.waitReady(el)
 			l.count.Add(-1)
 			return el.value, true
 		}
@@ -242,7 +273,7 @@ func (l *List[T]) TryTakeRange(buf []T) int {
 		}
 		for i := uint64(0); i < take; i++ {
 			el := &s.slots[pos+i]
-			el.waitReady()
+			l.waitReady(el)
 			buf[n] = el.value
 			n++
 		}
@@ -263,7 +294,7 @@ func (l *List[T]) TryPeek() (T, bool) {
 		pos := s.head.Load()
 		if pos < s.filled() {
 			el := &s.slots[pos]
-			el.waitReady()
+			l.waitReady(el)
 			return el.value, true
 		}
 		if pos < uint64(len(s.slots)) {

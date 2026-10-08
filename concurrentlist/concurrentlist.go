@@ -8,7 +8,7 @@
 // slots.
 // slot with a single atomic add, and the elements of a segment share cache lines.
 // An append never waits. A producer can reserve a slot and not yet publish it.
-// A take or a peek that reaches such a slot parks on a channel until the
+// A take or a peek that reaches such a slot waits on a sync.Cond until the
 // publish.
 package concurrentlist
 
@@ -32,8 +32,8 @@ type slot[T any] struct {
 }
 
 // waitReady returns when the producer of s has published its value. A slot
-// that is not ready parks the caller on a channel of its own, which the next
-// publish on this list closes. The caller then looks at its slot again.
+// that is not ready waits on the list's condition variable, which every
+// publish broadcasts while somebody waits.
 func (l *List[T]) waitReady(s *slot[T]) {
 	if s.ready.Load() {
 		return
@@ -41,11 +41,7 @@ func (l *List[T]) waitReady(s *slot[T]) {
 	l.parkMu.Lock()
 	l.parked.Add(1)
 	for !s.ready.Load() {
-		wake := make(chan struct{})
-		l.wakers = append(l.wakers, wake)
-		l.parkMu.Unlock()
-		<-wake
-		l.parkMu.Lock()
+		l.published.Wait()
 	}
 	l.parked.Add(-1)
 	l.parkMu.Unlock()
@@ -58,12 +54,8 @@ func (l *List[T]) wakeParked() {
 		return
 	}
 	l.parkMu.Lock()
-	wakers := l.wakers
-	l.wakers = nil
+	l.published.Broadcast()
 	l.parkMu.Unlock()
-	for _, wake := range wakers {
-		close(wake)
-	}
 }
 
 // segment is a contiguous slot array and chain link; head/tail only rise.
@@ -96,10 +88,10 @@ type List[T any] struct {
 	count  atomic.Int64
 	initMu sync.Mutex
 
-	// parkMu guards wakers. parked counts the goroutines in waitReady, so a publish skips the mutex when nobody waits.
-	parkMu sync.Mutex
-	parked atomic.Int32
-	wakers []chan struct{}
+	// published is over parkMu, and tailSegment makes it before the first segment is visible. parked counts the goroutines in waitReady.
+	parkMu    sync.Mutex
+	published *sync.Cond
+	parked    atomic.Int32
 }
 
 // New creates an empty list. The empty List is equally usable; New exists for
@@ -120,6 +112,7 @@ func (l *List[T]) tailSegment() *segment[T] {
 		return s
 	}
 	s := newSegment[T](initialSegmentLen)
+	l.published = sync.NewCond(&l.parkMu)
 	l.head.Store(s)
 	l.tail.Store(s)
 	return s

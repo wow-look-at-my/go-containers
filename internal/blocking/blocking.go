@@ -150,10 +150,6 @@ func (c *Core[T]) take() T {
 
 // Take removes and returns a single element, and waits for a single when the collection
 // is empty.
-//
-// It returns ErrCompleted when the collection is complete for adds and empty,
-// and ctx.Err() when ctx ends earliest. A take that already received its element
-// returns that element, even when ctx ended at the same moment.
 func (c *Core[T]) Take(ctx context.Context) (T, error) {
 	if c.items.acquire(ctx) {
 		return c.take(), nil

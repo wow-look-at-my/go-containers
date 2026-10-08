@@ -160,7 +160,7 @@ func (l *List[T]) Append(value T) {
 
 // AppendRange adds every value to the end of the list, in the given order.
 //
-// A single atomic add reserves a whole run of slots, so a bulk append costs far
+// A single atomic add reserves a whole run of slots. A bulk append costs far
 // fewer atomic operations than the same number of Append calls. The run stays
 // contiguous unless it crosses the end of a segment.
 func (l *List[T]) AppendRange(values ...T) {
@@ -235,7 +235,7 @@ func (l *List[T]) TryTake() (T, bool) {
 // TryTakeRange removes up to len(buf) elements into buf, oldest and
 // returns how many it wrote.
 //
-// A single compare-and-swap claims a whole run of slots, so a bulk take costs far
+// A single compare-and-swap claims a whole run of slots. A bulk take costs far
 // fewer atomic operations than the same number of TryTake calls.
 func (l *List[T]) TryTakeRange(buf []T) int {
 	n := 0

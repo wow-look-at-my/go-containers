@@ -46,7 +46,7 @@ func (q *Queue[T]) EnqueueRange(values ...T) {
 }
 
 // grow doubles the backing array and re-lays the elements out starting at
-// instead of accounting for the old wrap point.
+// instead of accounting for the wrap point.
 func (q *Queue[T]) grow() {
 	size := len(q.buf) * 2
 	if size == 0 {

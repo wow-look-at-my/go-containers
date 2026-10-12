@@ -102,7 +102,7 @@ func TestNewForwardsOptions(t *testing.T) {
 
 // TestConcurrentAddRemoveContains races many goroutines adding, removing, and
 // reading the same small key space. The race detector is the real assertion
-// here; the length checks just confirm the set never over- or under-counts.
+// here; the length checks confirm the set never over- or under-counts.
 func TestConcurrentAddRemoveContains(t *testing.T) {
 	s := New[int]()
 	const goroutines = 32

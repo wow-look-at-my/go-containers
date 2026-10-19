@@ -9,9 +9,7 @@ import (
 )
 
 // Every benchmark runs Bag against a mutex-guarded slice and a buffered
-// channel -- what a Go caller reaches for without a bag. Add benchmarks run
-// against an arena a single goroutine replaces every arenaOps ops, so a growing
-// container never exhausts memory and no implementation pays for a drain.
+// channel -- what a Go caller reaches for without a bag.
 
 const (
 	// arenaOps is how many ops a single goroutine runs before replacing the arena.

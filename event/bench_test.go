@@ -206,8 +206,8 @@ func BenchmarkCompareConcurrentInvoke(b *testing.B) {
 
 // ---------- subscription ----------
 
-// the per-callback cost. Event keeps its callbacks in a set, so an insert is a
-// hash lookup; the hand-rolled slice scans everything it already holds, which
+// the per-callback cost. Event keeps its callbacks in a set. An insert is a
+// hash lookup. The hand-rolled slice scans everything it already holds, which
 // is why its cost per subscriber rises with the size of the dispatcher.
 func BenchmarkCompareSubscribe(b *testing.B) {
 	const n = 100

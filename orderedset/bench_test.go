@@ -18,8 +18,8 @@ var (
 	sinkSet   OrderedSet[int]
 )
 
-// handrolled is the baseline: a set and a slice kept in step by the caller,
-// which has to find an element before it can remove one.
+// handrolled is the baseline: a set and a slice kept in step by the caller.
+// This has to find an element before it can remove one.
 type handrolled struct {
 	seen  set.Set[int]
 	order []int
@@ -136,7 +136,7 @@ func BenchmarkCompareContainsHit(b *testing.B) {
 		})
 }
 
-// The hand-rolled removal is where the index earns its keep: it scans the slice
+// The hand-rolled removal is where the index earns its keep. It scans the slice
 // to find the element, then shifts the tail down over it.
 func BenchmarkCompareRemove(b *testing.B) {
 	eachSize(b,

@@ -12,9 +12,9 @@ import (
 const compactFloor = 8
 
 // OrderedSet is a collection of unique elements of type T that iterates in
-// first-added order. Not safe for concurrent use. Zero value ready to use.
+// first-added order. Not safe for concurrent use.
 type OrderedSet[T comparable] struct {
-	// index maps an element to the slot in order that currently holds it.
+	// index maps an element to the slot in order that holds it.
 	index map[T]int
 	// order is append-only; a removal leaves its slot for live to reject.
 	order []T
@@ -38,7 +38,7 @@ func Of[T comparable](elems ...T) OrderedSet[T] {
 	return s
 }
 
-// live reports whether slot i currently holds elem.
+// live reports whether slot i holds elem.
 func (s OrderedSet[T]) live(i int, elem T) bool {
 	j, ok := s.index[elem]
 	return ok && j == i
@@ -271,12 +271,12 @@ func (s OrderedSet[T]) IsSupersetOf(other OrderedSet[T]) bool {
 	return other.IsSubsetOf(s)
 }
 
-// IsProperSubsetOf reports whether s is a subset of other and the two differ.
+// IsProperSubsetOf reports whether s is a subset of other and both differ.
 func (s OrderedSet[T]) IsProperSubsetOf(other OrderedSet[T]) bool {
 	return s.Len() < other.Len() && s.IsSubsetOf(other)
 }
 
-// IsProperSupersetOf reports whether s is a superset of other and the two differ.
+// IsProperSupersetOf reports whether s is a superset of other and both differ.
 func (s OrderedSet[T]) IsProperSupersetOf(other OrderedSet[T]) bool {
 	return other.IsProperSubsetOf(s)
 }

@@ -4,6 +4,10 @@ on:
   push:
     branches: ['**']
 
+concurrency:
+  group: gha_${{ github.repository }}_${{ github.workflow }}_${{ github.ref != 'refs/heads/master' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 permissions:
   id-token: write
   contents: write
@@ -14,22 +18,22 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: wow-look-at-my/go-toolchain@master
+      - uses: wow-look-at-my/go-toolchain@lkgb
         with:
           # The comparison suite outruns the default budget and is killed mid-benchmark.
           timeout: '20'
 
   # Runs the tests under -race: every collection here is concurrent, so a green build must mean tests ran race-checked.
   race:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.CI_RUNNER || 'ubuntu-latest' }}
     env:
       GOFLAGS: -race
     steps:
       - uses: actions/checkout@v4
-      - uses: wow-look-at-my/go-toolchain@master
+      - uses: wow-look-at-my/go-toolchain@lkgb
         with:
           cgo: true
           autorelease: false

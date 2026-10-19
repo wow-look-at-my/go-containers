@@ -27,7 +27,7 @@ func (e *Event[T]) Subscribe(cb *func(T) error) bool {
 	return e.d.subscribe(cb)
 }
 
-// Unsubscribe removes a previously registered callback.
+// Unsubscribe removes a registered callback.
 func (e *Event[T]) Unsubscribe(cb *func(T) error) {
 	e.d.unsubscribe(cb)
 }
@@ -41,7 +41,7 @@ func (e *Event[T]) Len() int {
 // Invoke calls every registered callback with arg. All live callbacks are
 // called even if some return errors. Callbacks whose referents have been
 // garbage collected are silently skipped and removed. The returned error,
-// if non-nil, is the joined collection of all callback errors; a single
+// if non-nil, is the joined collection of all callback errors. A single
 // subscriber's error is returned as it is, with nothing wrapped around it.
 func (e *Event[T]) Invoke(arg T) error {
 	if only, ok := e.d.takeOne(); ok {
@@ -86,7 +86,7 @@ func (e *ResultEvent[T, R]) Subscribe(cb *func(T) (R, error)) bool {
 	return e.d.subscribe(cb)
 }
 
-// Unsubscribe removes a previously registered callback.
+// Unsubscribe removes a registered callback.
 func (e *ResultEvent[T, R]) Unsubscribe(cb *func(T) (R, error)) {
 	e.d.unsubscribe(cb)
 }
@@ -102,7 +102,7 @@ func (e *ResultEvent[T, R]) Len() int {
 // errors. A callback that returns a non-nil error still contributes its
 // value. Callbacks whose referents have been garbage collected are
 // silently skipped and removed. The returned error, if non-nil, is the
-// joined collection of all callback errors; a single subscriber's error
+// joined collection of all callback errors. A single subscriber's error
 // is returned as it is, with nothing wrapped around it.
 func (e *ResultEvent[T, R]) Invoke(arg T) ([]R, error) {
 	if only, ok := e.d.takeOne(); ok {

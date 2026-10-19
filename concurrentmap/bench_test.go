@@ -7,9 +7,7 @@ import (
 	"testing"
 )
 
-// Every benchmark runs the same workload on Map, sync.Map, and a hand-rolled
-// RWMutex-guarded map[int]int, sweeping b.SetParallelism past the core count
-// -- the whole point of sharding.
+// Every benchmark runs the same workload on Map, sync.Map, and a hand-rolled.
 
 const (
 	// mapSize is every prepared map's key count, a power of so a key index masks down.

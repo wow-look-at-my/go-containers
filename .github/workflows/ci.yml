@@ -29,12 +29,10 @@ jobs:
   # Runs the tests under -race: every collection here is concurrent, so a green build must mean tests ran race-checked.
   race:
     runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.CI_RUNNER || 'ubuntu-latest' }}
-    env:
-      GOFLAGS: -race
     steps:
       - uses: actions/checkout@v4
-      - uses: wow-look-at-my/go-toolchain@lkgb
+      - uses: actions/setup-go@v5
         with:
-          cgo: true
-          autorelease: false
-          timeout: '20'
+          go-version-file: go.mod
+      # The go-toolchain binary targets cosmo alone, and the race detector has no cosmo runtime, so a stock Go runs the tests here.
+      - run: go test -race ./...

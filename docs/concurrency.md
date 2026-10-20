@@ -18,11 +18,13 @@ Collections that many goroutines use at the same time, and a blocking variant of
 
 `concurrentmap` is the odd one: it uses locks. It says so. A map needs a hash table, and a lock-free hash table in Go costs an interface box or an `unsafe.Pointer` per entry. The sharding is what removes the contention: goroutines that touch different shards never wait for each other.
 
-`concurrentset`'s own bench_test.go carries a `DirectSet`. This covers the same sharding strategy, hand-coded directly against `T` with one `set.Set[T]` per shard instead of routing through `concurrentmap.Map`. It exists to check the wrapper's cost, and `Add` shows the wrapper WINS. `concurrentmap.Map.TryAdd` checks presence before writing, while `set.Set.Add` always writes and compares lengths after to learn what it did. A hot key set that is mostly already present pays for a write `TryAdd` skips. The wrapper is faster because its semantics are cheaper, not because sharding differs. `Contains` reads have no such asymmetry and land within noise of each other.
+`concurrentset`'s own bench_test.go carries a `DirectSet`. This covers the same sharding strategy, hand-coded directly against `T` with one `set.Set[T]` per shard instead of routing through `concurrentmap.Map`. It exists to check the wrapper's cost, and `Add` shows the wrapper WINS. `concurrentmap.Map.TryAdd` checks presence before writing, while `set.Set.Add` always writes and compares lengths after to learn what it did. A hot key set that is mostly already present pays for a write `TryAdd` skips. The wrapper is faster because its semantics are cheaper, not because sharding differs.
+
+`Contains` reads have no such asymmetry and land within noise of each other.
 
 ## concurrentlist: the segment chain
 
-A segment is one contiguous array of slots plus a `next` pointer. Contiguous storage is the reason this is fast. It is the choice moodycamel's ConcurrentQueue makes for the same reason: a linked node per element costs one allocation and one cache miss per element.
+A segment is one adjacent array of slots plus a `next` pointer. Adjacent storage is the reason this is fast. It is the choice moodycamel's ConcurrentQueue makes for the same reason: a linked node per element costs one allocation and one cache miss per element.
 
 - An append reserves a slot with one atomic add on the segment tail. It then writes the value and stores the slot's ready flag.
 - The ready flag is what makes the plain value field safe. The producer writes the value and then stores the flag. A consumer loads the flag and then reads the value. Go's memory model turns that pair into a happens-before edge, and the race detector agrees.
@@ -47,19 +49,21 @@ The price of the argument is one allocation per push. It is why a mutex around a
 
 ### The bag has no thread affinity, and cannot have one
 
-.NET's `ConcurrentBag<T>` is fast because each thread adds to and takes from its own list. Go exposes no goroutine identity and no P identity to library code. That design is not available. The bag picks a shard with `math/rand/v2`, whose top-level functions read the runtime's per-P generator, so picking a shard costs no shared atomic. It spreads the contention. It does not give locality. A take that finds its own shard empty steals from the others, and reports false only after it has seen every shard empty.
+.NET's `ConcurrentBag<T>` is fast because each thread adds to and takes from its own list. Go exposes no goroutine identity and no P identity to library code. That design is not available. The bag picks a shard with `math/rand/v2`, whose top-level functions read the runtime's per-P generator, so picking a shard costs no shared atomic. It spreads the contention. It does not give locality.
+
+A take that finds its own shard empty steals from the others, and reports false only after it saw every shard empty.
 
 ## The blocking types
 
 `BlockingList`, `BlockingStack` and `BlockingBag` are the same core over a few different stores. The core lives in `internal/blocking`. The store contract is the `Store[T]` interface: `TryAdd`, `TryTake`, `Len`. It is this repository's `IProducerConsumerCollection<T>`.
 
-Semaphores carry the whole design. `items` holds one permit per element a taker can remove. `free` holds one permit per empty slot, and a collection with no bound never touches it. A permit is released only after its add returns, so a take that holds a permit knows a complete element is in the store. A bag's scan can still miss it while another taker removes the element the scan was heading for. That miss means another take succeeded. The core calls the store again at once. Nothing in the core yields or sleeps.
+Semaphores carry the whole design. `items` holds one permit per element a taker can remove. `free` holds one permit per empty slot, and a collection with no bound never touches it. A take that holds a permit knows an element exists, so it retries the store until the element appears rather than reporting empty.
 
 The semaphore is a mutex, a counter and a queue of parked goroutines. A channel cannot do the job on its own. The permit count of an unbounded collection has no ceiling, so there is no buffer size to give it.
 
 Each park allocates a channel. A pool must not recycle them. `testing/synctest` binds a channel to the bubble that created it and stops the program when another bubble touches it. A shared pool will break the synctest tests of any caller of this library. That is not a theory: the pooled version failed this repository's own synctest tests.
 
-`CompleteAdding` takes the write side of a `sync.RWMutex` that every add holds for reading. So when it returns, every add in flight has finished and no further add can reach the store. It then wakes every parked goroutine. A woken taker drains what is left before it sees `ErrCompleted`, which is what makes "complete" and "empty" separate states.
+`CompleteAdding` takes the write side of a `sync.RWMutex` that every add holds for reading. So when it returns, every add in flight finished and no further add can reach the store. It then wakes every parked goroutine. A woken taker drains what is left before it sees `ErrCompleted`, which is what makes "complete" and "empty" separate states.
 
 A cancelled wait that has already been handed a permit still succeeds. The permit stands for one element or one free slot, and a caller that dropped it will lose that element or that slot for good.
 
@@ -74,4 +78,4 @@ Rules kept the numbers honest, and both are worth keeping:
 - **A fill benchmark builds a fresh collection per iteration.** An append-only benchmark on one shared collection holds every element it ever appends, and the framework raises the iteration count until that is gigabytes.
 - **A take benchmark must put something back.** A collection cannot give more than it got, so a take-only steady state does not exist. Where a refill is inside the timer, the table says so.
 
-Read the ratios, not the digits. The figures in README.md are medians of multiple runs on one 4-vCPU sandbox. Single runs of the same code moved by up to 3x here. Which is why the headline claims rest on medians and not on one sample.
+Read the ratios, not the digits. The figures in README.md are medians of multiple runs on one 4-vCPU sandbox. Single runs of the same code moved by up to 3x here. This is why the headline claims rest on medians and not on one sample.

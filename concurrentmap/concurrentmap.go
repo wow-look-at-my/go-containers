@@ -2,8 +2,8 @@
 // shards its keys across independently locked partitions, so operations on
 // different shards never contend.
 //
-// The API follows.NET's ConcurrentDictionary. It differs on a single point, and
-// the difference is deliberate: [Map.LoadOrCompute], [Map.AddOrUpdate] and
+// The API follows.NET's ConcurrentDictionary. It differs on a single point. The
+// difference is deliberate: [Map.LoadOrCompute], [Map.AddOrUpdate] and
 // [Map.Compute] run the caller's function while the shard lock is held.
 package concurrentmap
 
@@ -46,8 +46,7 @@ type pair[K comparable, V any] struct {
 }
 
 // Map is safe for concurrent use: keys spread across shards, each its own
-// lock. unset value NOT usable (every method panics) -- create with [New], and
-// never copy a Map after earliest use.
+// lock. unset value NOT usable (every method panics) -- create with [New].
 type Map[K comparable, V any] struct {
 	shards []*shard[K, V]
 	seed   maphash.Seed
@@ -75,7 +74,7 @@ func WithCapacity(n int) Option {
 	return func(c *config) { c.capacity = n }
 }
 
-// New creates an empty Map. Without options the Map takes the next power of
+// New creates an empty Map. Without options the Map takes the next power.
 func New[K comparable, V any](opts ...Option) *Map[K, V] {
 	cfg := config{concurrency: 4 * runtime.GOMAXPROCS(0)}
 	for _, opt := range opts {
@@ -181,9 +180,9 @@ func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	return value, false
 }
 
-// LoadOrCompute loads key, or calls fn a single time under the shard lock to compute
-// and store it -- unlike.NET's GetOrAdd, which runs its delegate unlocked.
-// fn must not call back into this Map (deadlock) or block (stalls the shard).
+// LoadOrCompute loads key, or calls fn a single time under the shard lock to
+// compute. Store it -- unlike.NET's GetOrAdd, which runs its delegate unlocked. fn
+// must not call back into this Map (deadlock) or block (stalls the shard).
 func (m *Map[K, V]) LoadOrCompute(key K, fn func(K) V) (actual V, loaded bool) {
 	s := m.shard(key)
 
@@ -320,7 +319,7 @@ func (m *Map[K, V]) returnSnapshot(buf *[]pair[K, V]) {
 	m.snapshots.Put(buf)
 }
 
-// All copies a single shard under its read lock, releases it, then yields that
+// All copies a single shard under its read lock, releases it. Then yields that
 // shard's pairs -- a shard-at-a-time view, not a single point in time.
 func (m *Map[K, V]) All() iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {

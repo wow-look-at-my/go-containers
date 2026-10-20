@@ -1,11 +1,11 @@
 // Package variant provides Variant, a value that holds a value of any type
 // and remembers which type it is. It is the tagged union Go has no syntax for.
 //
-// The alternatives are variadic. There is no numbered family of types, because
-// Go has no variadic type parameter and such a family caps the alternatives at
-// whatever arity somebody bothered to write. The alternatives appear instead
-// where a caller reads the value back, as the variadic handler list of Switch
-// and Match.
+// The alternatives are variadic. There is no numbered family of types. This is
+// because Go has no variadic type parameter and such a family caps the
+// alternatives at whatever arity somebody bothered to write. The alternatives
+// appear instead where a caller reads the value back, as the variadic handler
+// list of Switch and Match.
 package variant
 
 import (

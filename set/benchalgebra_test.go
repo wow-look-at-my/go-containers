@@ -57,8 +57,7 @@ func BenchmarkCompareIntersection(b *testing.B) {
 		})
 }
 
-// Set
-// iterates the smaller side; the obvious hand-rolled loop iterates the
+// Set iterates the smaller side; the obvious hand-rolled loop iterates the
 // receiver, so the differ by the size ratio rather than by a constant.
 func BenchmarkCompareIntersectionLopsided(b *testing.B) {
 	pair(b,

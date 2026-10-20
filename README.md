@@ -1,6 +1,6 @@
 # go-containers
 
-Generic container types for Go: a set, a sorted map, a weak-referenced event, an optional value and a tagged union. Plus a family of concurrent collections: a sharded map, a lock-free ordered list, a lock-free stack and bag. This is and a blocking twin of each. Pure Go, with testify as the dependency, for the tests alone.
+Generic container types for Go: a set, an insertion-ordered set, a sorted map, a weak-referenced event, an optional value and a tagged union. Plus a family of concurrent collections. This is a sharded map, a lock-free ordered list, a lock-free stack and bag, and a blocking twin of each. Pure Go, with testify as the dependency, for the tests alone.
 
 Every concurrent type keeps its synchronization inside itself. No caller ever takes a lock, and no method hands one back.
 
@@ -21,6 +21,22 @@ byteEncodingNames.Union(otherNames).Len()       // set algebra, no loops
 ```
 
 The zero value is an empty set ready to use. Add, AddRange, Remove, Contains, ContainsAll, ContainsAny, Len, IsEmpty, Clear, Clone, Values, All (an iterator), and the algebraic operations. Union, Intersection, Difference, SymmetricDifference, the subset and superset predicates, Equal, IsDisjoint, and the in-place AddSet, RemoveSet, RetainAll. A set marshals to a JSON array and back.
+
+## orderedset
+
+`orderedset.OrderedSet[T]` is a set that iterates in the order its elements were first added. Reach for it when a `set.Set` will do except that the output has to come back in the order it went in: deduplicating a list. That Reach collects the names of everything that went incorrect, building a stable JSON array.
+
+```go
+import "github.com/wow-look-at-my/go-containers/orderedset"
+
+missing := orderedset.Of("HOME", "PATH", "HOME")
+missing.Values()                       // ["HOME" "PATH"], first-added order
+for name := range missing.Backward() { ... }
+```
+
+The API is `set.Set`'s, plus `Backward` and `EqualOrdered`, and every result has a defined order. Union is the left side then whatever the right side adds, Intersection and Difference keep the left order. And an element that is removed and added again goes to the end. `Equal` compares elements only. Use `EqualOrdered` to compare the order too. The zero value is an empty set, and it marshals to a JSON array in order.
+
+An element's position lives in a `map[T]int` beside the slice, so Add, Remove and Contains are all constant-time. A removal leaves its slot behind rather than shifting the tail down. The slots are reclaimed in one pass once the dead outnumber the live.
 
 ## sortedmap
 

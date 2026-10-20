@@ -92,7 +92,7 @@ func WithConcurrency(n int) Option {
 	}
 }
 
-// New creates an empty bag. The shard count is a power of at or above the
+// New creates an empty bag. The shard count is a power of at or above.
 func New[T any](opts ...Option) *Bag[T] {
 	c := config{concurrency: runtime.GOMAXPROCS(0)}
 	for _, opt := range opts {
@@ -143,9 +143,8 @@ func (b *Bag[T]) AddRange(values ...T) {
 	b.shards[b.pick()].pushChain(head, tail, int64(len(values)))
 }
 
-// It tries its own
-// shard then it steals from the others. It reports false only after it
-// saw every shard empty.
+// It tries its own shard then it steals from the others. It reports false
+// only after it saw every shard empty.
 func (b *Bag[T]) TryTake() (T, bool) {
 	start := b.pick()
 	for i := range b.shards {
@@ -234,7 +233,7 @@ func (b *Bag[T]) Values() []T {
 }
 
 // All iterates every value, in indeterminate order, a single shard chain at a
-// time; a taken node's next pointer never changes, so it can still be yielded.
+// time. A taken node's next pointer never changes, so it can still be yielded.
 func (b *Bag[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
 		for i := range b.shards {

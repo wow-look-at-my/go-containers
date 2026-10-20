@@ -91,7 +91,7 @@ func (s *Stack[T]) TryPop() (T, bool) {
 }
 
 // TryPopRange removes up to len(buf) values and copies them into buf. It
-// returns the number of values it took. The value from the top lands in
+// returns the number of values it took.
 //
 // The whole range comes off with a single compare-and-swap. Another goroutine never
 // takes a value out of the middle of it.

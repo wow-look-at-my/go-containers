@@ -1,8 +1,8 @@
 // Package concurrentset provides Set, an unordered collection of unique
 // elements safe for concurrent use by multiple goroutines. It is a thin
-// wrapper over concurrentmap.Map[T, struct{}]: the shard-and-lock design that
-// makes a Map safe for concurrent use already solves the hard part, and a set
-// is a map that only ever needs its keys.
+// wrapper over concurrentmap.Map[T, struct{}]. This is the shard-and-lock
+// design that makes a Map safe for concurrent use already solves the hard
+// part. A set is a map that only ever needs its keys.
 package concurrentset
 
 import (

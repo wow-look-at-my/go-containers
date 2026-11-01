@@ -19,6 +19,8 @@ type OrderedSet[T comparable] struct {
 	// order is append-only; a removal leaves its slot for live to reject.
 	order []T
 	dead  int
+	// head is where the next TakeFront starts. Every slot before it is dead.
+	head int
 }
 
 // New creates an empty ordered set with an optional initial capacity hint.
@@ -78,6 +80,33 @@ func (s *OrderedSet[T]) Remove(elems ...T) {
 	s.compact()
 }
 
+// TakeFront removes and returns the first n elements, in order. A set with
+// less than n elements gives all of them. An n of zero or less gives nil.
+// The cost is the taken prefix plus the dead slots it passes, and a later
+// call starts where this stopped.
+func (s *OrderedSet[T]) TakeFront(n int) []T {
+	if n <= 0 || len(s.index) == 0 {
+		return nil
+	}
+	n = min(n, len(s.index))
+	out := make([]T, 0, n)
+	var zero T
+	i := s.head
+	for ; len(out) < n; i++ {
+		e := s.order[i]
+		if !s.live(i, e) {
+			continue
+		}
+		out = append(out, e)
+		delete(s.index, e)
+		s.order[i] = zero // drop the reference; live rejects the slot
+		s.dead++
+	}
+	s.head = i
+	s.compact()
+	return out
+}
+
 // compact rebuilds order without its dead slots, once they outnumber the live
 // ones. Waiting for that is what makes the cost of a removal constant on
 // average rather than linear every time.
@@ -96,6 +125,7 @@ func (s *OrderedSet[T]) compact() {
 	clear(s.order[len(kept):]) // drop the references the dead slots still hold
 	s.order = kept
 	s.dead = 0
+	s.head = 0
 }
 
 // Contains reports whether the set holds elem.
@@ -140,6 +170,7 @@ func (s *OrderedSet[T]) Clear() {
 	clear(s.order)
 	s.order = s.order[:0]
 	s.dead = 0
+	s.head = 0
 }
 
 // Clone returns a copy holding the same elements in the same order.

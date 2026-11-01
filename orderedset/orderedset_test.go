@@ -260,3 +260,80 @@ func TestUnmarshalJSONReplacesAndDeduplicates(t *testing.T) {
 
 	assert.Error(t, s.UnmarshalJSON([]byte(`{"not":"an array"}`)))
 }
+
+func TestTakeFrontReturnsThePrefixInOrder(t *testing.T) {
+	s := Of(5, 3, 9, 1)
+	assert.Equal(t, []int{5, 3}, s.TakeFront(2))
+	assert.Equal(t, []int{9, 1}, s.Values())
+	assert.False(t, s.Contains(5))
+	assert.Equal(t, 2, s.Len())
+}
+
+func TestTakeFrontOnAShortSetTakesEverything(t *testing.T) {
+	s := Of("a", "b")
+	assert.Equal(t, []string{"a", "b"}, s.TakeFront(10))
+	assert.True(t, s.IsEmpty())
+	assert.Nil(t, s.TakeFront(1), "an empty set gives nil")
+}
+
+func TestTakeFrontWithNonPositiveCountTakesNothing(t *testing.T) {
+	s := Of(1, 2)
+	assert.Nil(t, s.TakeFront(0))
+	assert.Nil(t, s.TakeFront(-3))
+	assert.Equal(t, []int{1, 2}, s.Values())
+
+	var zero OrderedSet[int]
+	assert.Nil(t, zero.TakeFront(4))
+}
+
+func TestTakeFrontSkipsRemovedElements(t *testing.T) {
+	s := Of(1, 2, 3, 4, 5)
+	s.Remove(1, 3)
+	assert.Equal(t, []int{2, 4}, s.TakeFront(2))
+	assert.Equal(t, []int{5}, s.Values())
+}
+
+func TestTakenElementReAddedGoesToTheEnd(t *testing.T) {
+	s := Of(1, 2, 3)
+	assert.Equal(t, []int{1}, s.TakeFront(1))
+	assert.True(t, s.Add(1))
+	assert.Equal(t, []int{2, 3, 1}, s.Values())
+	assert.Equal(t, []int{2, 3, 1}, s.TakeFront(3))
+	assert.True(t, s.IsEmpty())
+}
+
+// A set used as a queue must reclaim the slots its takes leave behind, and
+// must keep the order through each compaction.
+func TestTakeFrontAsAQueueStaysBoundedAndOrdered(t *testing.T) {
+	var s OrderedSet[int]
+	next, want := 0, 0
+	for range 1000 {
+		for range 3 {
+			s.Add(next)
+			next++
+		}
+		for _, got := range s.TakeFront(2) {
+			assert.Equal(t, want, got)
+			want++
+		}
+		assert.LessOrEqual(t, len(s.order), 2*s.Len()+compactFloor+3)
+	}
+	for _, got := range s.TakeFront(s.Len()) {
+		assert.Equal(t, want, got)
+		want++
+	}
+	assert.Equal(t, next, want)
+	assert.True(t, s.IsEmpty())
+}
+
+func TestTakeFrontAfterClearAndUnmarshal(t *testing.T) {
+	s := Of(1, 2, 3, 4)
+	s.TakeFront(3)
+	s.Clear()
+	s.AddRange(7, 8)
+	assert.Equal(t, []int{7}, s.TakeFront(1))
+
+	s.TakeFront(1)
+	require.NoError(t, s.UnmarshalJSON([]byte(`[4,5]`)))
+	assert.Equal(t, []int{4, 5}, s.TakeFront(5))
+}

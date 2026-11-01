@@ -1,3 +1,5 @@
+// MarshalJSON implements the json.Marshaler interface.
+
 package orderedset
 
 import "encoding/json"
@@ -16,7 +18,7 @@ func (s *OrderedSet[T]) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &elems); err != nil {
 		return err
 	}
-	s.index, s.order, s.dead = nil, nil, 0
+	s.index, s.order, s.dead, s.head = nil, nil, 0, 0
 	if len(elems) == 0 {
 		return nil
 	}

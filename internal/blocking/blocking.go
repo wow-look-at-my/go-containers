@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"iter"
-	"runtime"
 	"sync"
 	"sync/atomic"
 )
@@ -20,7 +19,7 @@ var ErrCompleted = errors.New("go-containers: the collection is complete for add
 // Unbounded is the capacity of a collection that never makes an add wait.
 const Unbounded = -1
 
-// Store is concurrent-safe and non-blocking; TryTake may report false mid-add, so the core retries.
+// Store is concurrent-safe.
 type Store[T any] interface {
 	TryAdd(v T) bool
 	TryTake() (T, bool)
@@ -139,15 +138,13 @@ func (c *Core[T]) TryAdd(value T) bool {
 	return c.add(value) == nil
 }
 
-// take removes a single element the caller's permit guarantees; it retries while
-// another goroutine is still mid-add on it.
+// take removes a single element the caller's permit guarantees.
 func (c *Core[T]) take() T {
 	for {
 		if v, ok := c.store.TryTake(); ok {
 			c.releaseFree()
 			return v
 		}
-		runtime.Gosched()
 	}
 }
 

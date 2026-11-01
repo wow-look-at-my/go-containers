@@ -34,6 +34,8 @@ missing.Values()                       // ["HOME" "PATH"], first-added order
 for name := range missing.Backward() { ... }
 ```
 
+`TakeFront(n)` removes and returns the first n elements in order. The set also serves as a first-in-first-out queue that drops a repeat.
+
 The API is `set.Set`'s, plus `Backward` and `EqualOrdered`, and every result has a defined order. Union is the left side then whatever the right side adds, Intersection and Difference keep the left order. And an element that is removed and added again goes to the end. `Equal` compares elements only. Use `EqualOrdered` to compare the order too. The zero value is an empty set, and it marshals to a JSON array in order.
 
 An element's position lives in a `map[T]int` beside the slice, so Add, Remove and Contains are all constant-time. A removal leaves its slot behind rather than shifting the tail down. The slots are reclaimed in one pass once the dead outnumber the live.
